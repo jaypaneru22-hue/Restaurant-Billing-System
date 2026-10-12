@@ -81,8 +81,8 @@ def validate_quantity(qty_input: int | str) -> Tuple[bool, str, Optional[int]]:
     return True, "Quantity is valid.", qty
 
 
-def validate_discount(discount_input: str | float | Decimal | int) -> Tuple[bool, str, Decimal]:
-    """Validates discount percentage: must be between 0.0 and MAX_DISCOUNT_PERCENT."""
+def validate_discount(discount_input: str | float | Decimal | int, max_percent: Decimal = MAX_DISCOUNT_PERCENT) -> Tuple[bool, str, Decimal]:
+    """Validates discount percentage: must be between 0.0 and max_percent."""
     if discount_input is None or str(discount_input).strip() == "":
         return True, "No discount applied.", Decimal("0.00")
     try:
@@ -92,8 +92,8 @@ def validate_discount(discount_input: str | float | Decimal | int) -> Tuple[bool
 
     if dec_discount < Decimal("0.00"):
         return False, "Discount percentage cannot be negative.", Decimal("0.00")
-    if dec_discount > MAX_DISCOUNT_PERCENT:
-        return False, f"Discount cannot exceed maximum allowed of {MAX_DISCOUNT_PERCENT}%.", Decimal("0.00")
+    if dec_discount > max_percent:
+        return False, f"Discount cannot exceed maximum allowed of {max_percent}%.", Decimal("0.00")
 
     return True, "Discount percentage is valid.", dec_discount.quantize(Decimal("0.01"))
 
