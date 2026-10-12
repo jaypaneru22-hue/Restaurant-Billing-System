@@ -1,0 +1,8 @@
+Defect_Category,Phase_Architecture,Phase_Unit_Test,Phase_Integration_Test,Phase_System_Verification,Total_Defects,Percentage,Cumulative_Percentage
+Financial & Calculation Exactness,1,2,1,0,4,28.57,28.57
+Input Validation & Poka-Yoke,1,1,1,0,3,21.43,50.00
+Data Integrity & Persistence,1,1,1,0,3,21.43,71.43
+User Experience & Preferences,0,1,1,0,2,14.29,85.71
+Error Handling & UI Messaging,0,1,0,0,1,7.14,92.86
+Keyboard Ergonomics & Shortcuts,0,0,0,1,1,7.14,100.00
+Total,3,6,4,1,14,100.00,100.00
