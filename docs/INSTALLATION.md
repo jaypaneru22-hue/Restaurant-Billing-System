@@ -38,24 +38,33 @@ Isolating dependencies within a virtual environment ensures reproducible executi
 **On Windows (PowerShell / Command Prompt):**
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
 ```
-*(If PowerShell displays an execution policy error, run: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`)*
+> **Windows Security Tip:** If PowerShell script execution is disabled (`Activate.ps1 cannot be loaded`), activation is **not** necessary! You can invoke the virtual environment's Python directly:
+> ```powershell
+> .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+> .\.venv\Scripts\python.exe main.py
+> ```
+> Or simply double-click [`run_app.bat`](../run_app.bat).
 
 **On Linux / macOS:**
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ### Step 3: Install Required Dependencies
 ```bash
+# Using direct venv python on Windows:
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# Or within activated shell:
 pip install -r requirements.txt
 ```
 
 Verify installed packages:
 ```bash
-pip list
+.\.venv\Scripts\python.exe -m pip list
 ```
 Key packages installed:
 - `customtkinter>=5.2.0` (Modern desktop graphical user interface)
@@ -67,18 +76,53 @@ Key packages installed:
 ### Step 4: Verify Database & Headless Self-Test
 Before starting the GUI, run the headless validation check:
 ```bash
-python main.py --headless-check
+.\.venv\Scripts\python.exe main.py --headless-check
 ```
 *Expected Output:*
 `System verified cleanly in headless mode. All database tables and seeds operational.`
 
 ### Step 5: Launch the Application
-```bash
-python main.py
+
+**Option A (Easiest — One Click on Windows):**
+Double-click `run_app.bat` from File Explorer or run in terminal:
+```powershell
+.\run_app.bat
 ```
+
+**Option B (Direct Python invocation):**
+```powershell
+.\.venv\Scripts\python.exe main.py
+```
+
 Log in using either:
 - **Admin:** `admin` / `Admin@123`
 - **Cashier:** `cashier1` / `Cashier@123`
+
+---
+
+## 3. Database Administration & Demo Data Governance
+
+The project includes an administration CLI tool [`scripts/manage_db.py`](../scripts/manage_db.py) for placement demonstrations and data audits:
+
+```bash
+# Check current database status and row counts:
+.\.venv\Scripts\python.exe scripts\manage_db.py status
+
+# Create a timestamped backup snapshot in data/backups/:
+.\.venv\Scripts\python.exe scripts\manage_db.py backup
+
+# Clean demo orders/bills for a clean presentation (preserves users & menu):
+.\.venv\Scripts\python.exe scripts\manage_db.py clean-demo --confirm
+
+# Seed realistic demonstration orders across the past 5 days for charts:
+.\.venv\Scripts\python.exe scripts\manage_db.py seed-demo
+
+# Recover or reset the default administrator password (Admin@123):
+.\.venv\Scripts\python.exe scripts\manage_db.py recover-admin
+
+# Complete database reset with master seeds:
+.\.venv\Scripts\python.exe scripts\manage_db.py reset --confirm
+```
 
 ---
 

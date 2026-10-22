@@ -5,7 +5,7 @@
 - **Student Name:** Jay Paneru
 - **Registration Number:** 2410302024
 - **Assigned Quality Goal:** Q08 — Improve User Satisfaction
-- **Test Date:** 2026-10-12
+- **Test Date:** 2026-10-22
 - **Environment:** Windows 11, Python 3.12.10, pytest 9.1.1
 - **Overall Status:** **PASSED (100% Pass Rate)**
 
@@ -13,16 +13,17 @@
 
 ## 1. Executive Summary
 
-A comprehensive automated test suite consisting of **60 distinct unit and integration test cases** was executed against an isolated, temporary SQLite test database.
+A comprehensive automated test suite consisting of **63 distinct unit and integration test cases** was executed against an isolated, temporary SQLite test database, alongside an automated full GUI lifecycle smoke test covering all CustomTkinter frames and Matplotlib embedded charts.
 
 | Metric | Result |
 |--------|--------|
-| **Total Test Cases** | **60** |
-| **Passed** | **60** |
+| **Total Test Cases** | **63** |
+| **Passed** | **63** |
 | **Failed** | **0** |
 | **Skipped** | **0** |
 | **Pass Rate** | **100.0%** |
-| **Total Duration** | **15.32 seconds** |
+| **Total Duration** | **15.37 seconds** |
+| **GUI Smoke Test** | **100% Passed (Zero Exceptions)** |
 
 ---
 
@@ -100,9 +101,12 @@ tests/test_validators.py::test_validate_quantity PASSED                  [ 93%]
 tests/test_validators.py::test_validate_discount PASSED                  [ 95%]
 tests/test_validators.py::test_validate_tax_rate PASSED                  [ 96%]
 tests/test_validators.py::test_validate_payment_method PASSED            [ 98%]
+tests/test_manage_db.py::test_create_backup_file_creation PASSED         [ 95%]
+tests/test_manage_db.py::test_clean_demo_preserves_master_seeds PASSED   [ 97%]
+tests/test_manage_db.py::test_recover_admin_resets_password PASSED       [ 98%]
 tests/test_validators.py::test_validate_order_status PASSED              [100%]
 
-============================= 60 passed in 15.32s =============================
+============================= 63 passed in 15.37s =============================
 ```
 
 ---
@@ -120,3 +124,5 @@ tests/test_validators.py::test_validate_order_status PASSED              [100%]
 9. **Q08-F3 Theme Toggle:** 4/4 passed (appearance switching, listener callback dispatch, database persistence).
 10. **Q08-F5 User Profile Settings:** 6/6 passed (profile viewer, display name updater, secure password change, preferences persistence).
 11. **Logging & Domain Models:** 5/5 passed (credential redaction, domain dataclass helpers).
+12. **Database Administration & Demo Governance:** 3/3 passed (backup snapshot creation, safe demo data cleanup with master seed protection, admin credential recovery).
+
