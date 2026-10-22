@@ -112,6 +112,65 @@ class MenuDialog(ctk.CTkToplevel):
             self.lbl_error.configure(text=msg)
 
 
+class ConfirmDeleteDialog(ctk.CTkToplevel):
+    """Poka-Yoke confirmation modal before permanently removing or deactivating a dish."""
+
+    def __init__(self, master, item_name: str, on_confirm_cb: Callable[[], None], **kwargs):
+        super().__init__(master, **kwargs)
+        self.title("Confirm Deletion")
+        self.geometry("380x180")
+        self.resizable(False, False)
+        self.grab_set()
+
+        palette = theme_manager.get_palette()
+        self.configure(fg_color=palette["bg_primary"])
+
+        ctk.CTkLabel(
+            self,
+            text="⚠️ Confirm Deletion",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=palette["danger"]
+        ).pack(padx=20, pady=(20, 8), anchor="w")
+
+        ctk.CTkLabel(
+            self,
+            text=f"Are you sure you want to delete '{item_name}'?\nThis action cannot be undone.",
+            font=ctk.CTkFont(size=12),
+            text_color=palette["text_secondary"],
+            justify="left"
+        ).pack(padx=20, pady=(0, 15), anchor="w")
+
+        btn_box = ctk.CTkFrame(self, fg_color="transparent")
+        btn_box.pack(padx=20, pady=(0, 15), fill="x", side="bottom")
+
+        cancel_btn = ctk.CTkButton(
+            btn_box,
+            text="Cancel",
+            width=90,
+            height=32,
+            fg_color=palette["bg_secondary"],
+            hover_color=palette["border"],
+            text_color=palette["text_primary"],
+            command=self.destroy
+        )
+        cancel_btn.pack(side="left")
+
+        def _do_confirm():
+            self.destroy()
+            on_confirm_cb()
+
+        del_btn = ctk.CTkButton(
+            btn_box,
+            text="🗑️ Delete",
+            width=100,
+            height=32,
+            fg_color=palette["danger"],
+            hover_color="#b91c1c",
+            command=_do_confirm
+        )
+        del_btn.pack(side="right")
+
+
 class MenuFrame(ctk.CTkFrame):
     """Menu Catalog Management view."""
 
@@ -295,6 +354,9 @@ class MenuFrame(ctk.CTkFrame):
         return False, msg
 
     def _delete_item(self, item):
-        ok, msg = self.menu_svc.delete_item(item.id)
-        if ok:
-            self.refresh_items()
+        def _confirmed_delete():
+            ok, msg = self.menu_svc.delete_item(item.id)
+            if ok:
+                self.refresh_items()
+
+        ConfirmDeleteDialog(self, item_name=item.name, on_confirm_cb=_confirmed_delete)

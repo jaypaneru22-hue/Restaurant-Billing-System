@@ -1,5 +1,6 @@
 """Visual Reports view embedding Matplotlib analytical charts in CustomTkinter (Q08-F2)."""
 import customtkinter as ctk
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from services.report_service import ReportService, report_service
 from ui.theme_manager import theme_manager
@@ -13,6 +14,7 @@ class ReportsFrame(ctk.CTkFrame):
         self.report_svc = report_svc
         self.current_days = 7
         self._canvases = []
+        self._figures = []
 
         theme_manager.subscribe(self.on_theme_changed)
         self._build_ui()
@@ -95,6 +97,16 @@ class ReportsFrame(ctk.CTkFrame):
         self.current_days = days_map.get(value, 7)
         self.refresh_charts()
 
+    def _clear_old_figures(self):
+        """Closes all previously allocated Matplotlib figures to prevent resource leaks."""
+        for fig in self._figures:
+            try:
+                plt.close(fig)
+            except Exception:
+                pass
+        self._figures.clear()
+        self._canvases.clear()
+
     def _render_chart_in_card(self, card_frame: ctk.CTkFrame, figure):
         # Clear previous canvas inside card
         for child in card_frame.winfo_children():
@@ -104,9 +116,11 @@ class ReportsFrame(ctk.CTkFrame):
         canvas.draw()
         canvas.get_tk_widget().pack(fill="both", expand=True, padx=8, pady=8)
         self._canvases.append(canvas)
+        self._figures.append(figure)
 
     def refresh_charts(self):
-        """Re-queries data and embeds freshly rendered figures."""
+        """Re-queries data and embeds freshly rendered figures with memory cleanup."""
+        self._clear_old_figures()
         theme = theme_manager.current_theme
 
         # 1. Daily Sales Trend
