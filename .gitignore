@@ -11,12 +11,14 @@ __pycache__/
 *.so
 .pytest_cache/
 
-# SQLite databases (data files should not be committed to git)
+# SQLite databases and backups (data files should not be committed to git)
 *.db
 *.sqlite
 *.sqlite3
+*.bak
 data/*.db
 tests/*.db
+data/backups/
 
 # Logs
 logs/*.log
