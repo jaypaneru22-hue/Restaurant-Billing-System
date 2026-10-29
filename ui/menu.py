@@ -1,7 +1,7 @@
 """Menu Catalog Management view supporting CRUD, search, and category filtering."""
 import customtkinter as ctk
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Callable
 from services.menu_service import MenuService, menu_service
 from ui.theme_manager import theme_manager
 from config.settings import DEFAULT_CATEGORIES, CURRENCY_SYMBOL

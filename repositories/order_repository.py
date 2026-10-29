@@ -72,13 +72,15 @@ class OrderRepository:
 
     def create_order(self, user_id: int, table_number: str, customer_name: str, items: List[OrderItem]) -> Order:
         """Atomically persists an order and its line items."""
+        from datetime import datetime
         order_number = self.generate_order_number()
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self.db.transaction() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """INSERT INTO orders (order_number, user_id, table_number, customer_name, status)
-                   VALUES (?, ?, ?, ?, 'PENDING');""",
-                (order_number, user_id, table_number.strip(), customer_name.strip())
+                """INSERT INTO orders (order_number, user_id, table_number, customer_name, status, created_at)
+                   VALUES (?, ?, ?, ?, 'PENDING', ?);""",
+                (order_number, user_id, table_number.strip(), customer_name.strip(), created_at)
             )
             order_id = cursor.lastrowid
 

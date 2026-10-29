@@ -61,14 +61,16 @@ class BillingRepository:
         payment_method: str
     ) -> Bill:
         """Atomically inserts bill and transitions order status to COMPLETED."""
+        from datetime import datetime
         bill_number = self.generate_bill_number()
+        billed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self.db.transaction() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """INSERT INTO bills (
                     bill_number, order_id, subtotal, tax_rate, tax_amount,
-                    discount_percent, discount_amount, final_total, payment_method, payment_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PAID');""",
+                    discount_percent, discount_amount, final_total, payment_method, payment_status, billed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'PAID', ?);""",
                 (
                     bill_number,
                     order_id,
@@ -78,7 +80,8 @@ class BillingRepository:
                     str(discount_percent.quantize(Decimal("0.01"))),
                     str(discount_amount.quantize(Decimal("0.01"))),
                     str(final_total.quantize(Decimal("0.01"))),
-                    payment_method.upper()
+                    payment_method.upper(),
+                    billed_at
                 )
             )
             bill_id = cursor.lastrowid
