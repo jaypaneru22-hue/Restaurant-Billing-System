@@ -193,7 +193,7 @@ class BillingDialog(ctk.CTkToplevel):
             title_col,
             text=f"💳 Settle Bill: {self.order.order_number}",
             font=ctk.CTkFont(size=16, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         ).pack(anchor="w")
 
         info_text = f"Table: {self.order.table_number}  •  Guest: {self.order.customer_name}  •  Items: {len(self.order.items)}"
@@ -223,7 +223,7 @@ class BillingDialog(ctk.CTkToplevel):
             card_items,
             text="1. Order Line Items",
             font=ctk.CTkFont(size=13, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         ).pack(anchor="w", padx=15, pady=(10, 4))
 
         items_sub = ctk.CTkFrame(card_items, fg_color="transparent")

@@ -18,10 +18,10 @@ class LoginFrame(ctk.CTkFrame):
 
     def _build_ui(self):
         palette = theme_manager.get_palette()
-        self.configure(fg_color=palette["bg_primary"])
+        self.configure(fg_color=palette["bg_secondary"])
 
         # Center card container
-        card = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=16, border_width=1, border_color=palette["border"], width=420)
+        card = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=16, border_width=1, border_color=palette["border"], width=440)
         card.place(relx=0.5, rely=0.5, anchor="center")
 
         # Header & Metadata
@@ -32,7 +32,7 @@ class LoginFrame(ctk.CTkFrame):
             header_box,
             text=f"🍽️ {APP_NAME}",
             font=ctk.CTkFont(size=22, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         ).pack()
 
         ctk.CTkLabel(

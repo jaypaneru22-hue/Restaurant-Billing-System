@@ -31,7 +31,7 @@ class MenuDialog(ctk.CTkToplevel):
             self,
             text=title_text,
             font=ctk.CTkFont(size=18, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         ).pack(padx=25, pady=(20, 15), anchor="w")
 
         form = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
@@ -202,7 +202,7 @@ class MenuFrame(ctk.CTkFrame):
             title_box,
             text="📋 Menu Catalog Management",
             font=ctk.CTkFont(size=22, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         ).pack(anchor="w")
         ctk.CTkLabel(
             title_box,

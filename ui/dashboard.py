@@ -41,7 +41,7 @@ class DashboardFrame(ctk.CTkFrame):
             title_box,
             text="📊 Operational Dashboard",
             font=ctk.CTkFont(size=22, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         ).pack(anchor="w")
 
         ctk.CTkLabel(
@@ -129,7 +129,7 @@ class DashboardFrame(ctk.CTkFrame):
             recent_header,
             text="Recent Point-of-Sale Transactions",
             font=ctk.CTkFont(size=15, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         ).pack(side="left")
 
         ctk.CTkButton(
@@ -158,7 +158,7 @@ class DashboardFrame(ctk.CTkFrame):
             popular_header,
             text="🔥 Top Selling Dishes",
             font=ctk.CTkFont(size=15, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         ).pack(side="left")
 
         ctk.CTkButton(

@@ -20,7 +20,7 @@ class ThemeManager:
 
     def get_palette(self) -> dict:
         """Returns the color dictionary for the active theme."""
-        return THEME_PALETTES.get(self._current_theme, THEME_PALETTES["dark"])
+        return THEME_PALETTES.get(self._current_theme, THEME_PALETTES["light"])
 
     def subscribe(self, listener: Callable[[str], None]) -> None:
         """Subscribes a callback that is invoked whenever the theme changes."""

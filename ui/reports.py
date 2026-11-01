@@ -40,7 +40,7 @@ class ReportsFrame(ctk.CTkFrame):
             title_box,
             text="📈 Visual Analytics & Quality Reports",
             font=ctk.CTkFont(size=22, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         ).pack(anchor="w")
         ctk.CTkLabel(
             title_box,

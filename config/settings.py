@@ -33,36 +33,92 @@ DEFAULT_TAX_RATE = Decimal("5.0")  # 5.0% Restaurant Goods and Services Tax (GST
 MAX_DISCOUNT_PERCENT = Decimal("50.0")
 
 # UI Theme Configuration
-SUPPORTED_THEMES = ["dark", "light"]
-DEFAULT_THEME = "dark"
+SUPPORTED_THEMES = ["light", "dark"]
+DEFAULT_THEME = "light"
 
-# Color Palettes for High-Contrast Modern Ergonomics
+# Color Palettes for High-Contrast Modern Ergonomics (Part B Design Direction: Blue Sidebar + White Workspace)
 THEME_PALETTES = {
-    "dark": {
-        "bg_primary": "#1a1a24",
-        "bg_secondary": "#242436",
-        "bg_card": "#2d2d44",
-        "text_primary": "#f8f9fa",
-        "text_secondary": "#a0a5b5",
-        "accent": "#4f46e5",       # Indigo
-        "accent_hover": "#4338ca",
-        "success": "#10b981",      # Emerald
-        "warning": "#f59e0b",      # Amber
-        "danger": "#ef4444",       # Crimson
-        "border": "#3d3d5c"
-    },
     "light": {
-        "bg_primary": "#f3f4f6",
-        "bg_secondary": "#ffffff",
-        "bg_card": "#ffffff",
-        "text_primary": "#111827",
-        "text_secondary": "#6b7280",
-        "accent": "#4f46e5",
-        "accent_hover": "#4338ca",
-        "success": "#059669",
-        "warning": "#d97706",
-        "danger": "#dc2626",
-        "border": "#e5e7eb"
+        # Sidebar (Deep Blue / Navy)
+        "sidebar_bg": "#173B70",
+        "sidebar_secondary": "#245A9B",
+        "sidebar_hover": "#245A9B",
+        "sidebar_active": "#2563EB",
+        "sidebar_text": "#FFFFFF",
+        "sidebar_text_muted": "#BFDBFE",
+        "sidebar_border": "#1E3A8A",
+
+        # Header Bar
+        "header_bg": "#FFFFFF",
+        "header_text": "#173B70",
+        "header_border": "#E2E8F0",
+
+        # Workspace & Surfaces (Clean White + Light Grey Sections)
+        "bg_primary": "#FFFFFF",
+        "bg_secondary": "#F8FAFC",
+        "bg_card": "#FFFFFF",
+        "bg_card_subtle": "#F1F5F9",
+
+        # Typography (High Contrast Navy & Slate)
+        "heading": "#173B70",
+        "text_primary": "#1E293B",
+        "text_secondary": "#64748B",
+        "text_muted": "#94A3B8",
+
+        # Brand Accents & Interactive Elements
+        "accent": "#2563EB",
+        "accent_hover": "#1D4ED8",
+        "accent_light": "#EFF6FF",
+
+        # Status & Quality Feedback
+        "success": "#16A34A",
+        "success_light": "#DCFCE7",
+        "warning": "#F59E0B",
+        "warning_light": "#FEF3C7",
+        "danger": "#DC2626",
+        "danger_light": "#FEE2E2",
+        "border": "#E2E8F0",
+    },
+    "dark": {
+        # Sidebar (Deep Slate Navy)
+        "sidebar_bg": "#0B192C",
+        "sidebar_secondary": "#1E3E62",
+        "sidebar_hover": "#1E3E62",
+        "sidebar_active": "#2563EB",
+        "sidebar_text": "#FFFFFF",
+        "sidebar_text_muted": "#94A3B8",
+        "sidebar_border": "#1E293B",
+
+        # Header Bar
+        "header_bg": "#1E293B",
+        "header_text": "#F8FAFC",
+        "header_border": "#334155",
+
+        # Workspace & Surfaces
+        "bg_primary": "#0F172A",
+        "bg_secondary": "#1E293B",
+        "bg_card": "#1E293B",
+        "bg_card_subtle": "#253347",
+
+        # Typography
+        "heading": "#F8FAFC",
+        "text_primary": "#F8FAFC",
+        "text_secondary": "#94A3B8",
+        "text_muted": "#64748B",
+
+        # Brand Accents & Interactive Elements
+        "accent": "#3B82F6",
+        "accent_hover": "#2563EB",
+        "accent_light": "#1E3E62",
+
+        # Status & Quality Feedback
+        "success": "#10B981",
+        "success_light": "#064E3B",
+        "warning": "#F59E0B",
+        "warning_light": "#78350F",
+        "danger": "#EF4444",
+        "danger_light": "#7F1D1D",
+        "border": "#334155",
     }
 }
 

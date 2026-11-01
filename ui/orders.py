@@ -68,7 +68,7 @@ class NewOrderFrame(ctk.CTkFrame):
             title_col,
             text="🍽️ Point of Sale — Menu Catalog",
             font=ctk.CTkFont(size=20, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         ).pack(anchor="w")
 
         ctk.CTkLabel(
@@ -147,7 +147,7 @@ class NewOrderFrame(ctk.CTkFrame):
             cart_header,
             text="🛒 Current Order Ticket",
             font=ctk.CTkFont(size=17, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         )
         self.lbl_cart_title.pack(side="left")
 
@@ -539,7 +539,7 @@ class OrderHistoryFrame(ctk.CTkFrame):
             title_box,
             text="📜 Orders History & Billing Invoices",
             font=ctk.CTkFont(size=22, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", palette["text_primary"])
         ).pack(anchor="w")
 
         ctk.CTkLabel(
