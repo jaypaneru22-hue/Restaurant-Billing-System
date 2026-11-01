@@ -55,11 +55,11 @@ class MenuDialog(ctk.CTkToplevel):
             self.combo_cat.set(DEFAULT_CATEGORIES[0])
 
         # Price
-        ctk.CTkLabel(form, text=f"Price ({CURRENCY_SYMBOL}) *", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(anchor="w", padx=20, pady=(0, 2))
-        self.entry_price = ctk.CTkEntry(form, height=34, font=ctk.CTkFont(size=13))
+        ctk.CTkLabel(form, text=f"Price ({CURRENCY_SYMBOL}) * (whole rupees)", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(anchor="w", padx=20, pady=(0, 2))
+        self.entry_price = ctk.CTkEntry(form, height=34, font=ctk.CTkFont(size=13), placeholder_text="e.g. 150")
         self.entry_price.pack(fill="x", padx=20, pady=(0, 10))
         if self.item:
-            self.entry_price.insert(0, str(self.item.price))
+            self.entry_price.insert(0, str(int(self.item.price)) if self.item.price == int(self.item.price) else str(self.item.price))
 
         # Availability Switch
         self.switch_avail = ctk.CTkSwitch(form, text="Available for Order", font=ctk.CTkFont(size=12), text_color=palette.get("form_label", "#334155"))
@@ -105,6 +105,13 @@ class MenuDialog(ctk.CTkToplevel):
         cat = self.combo_cat.get().strip()
         price_str = self.entry_price.get().strip()
         avail = bool(self.switch_avail.get())
+
+        if price_str.startswith("."):
+            self.lbl_error.configure(text="Price cannot start with a decimal point. Enter a whole rupee amount.")
+            return
+        if "." in price_str:
+            self.lbl_error.configure(text="Menu item price must be a whole rupee amount without decimal points.")
+            return
 
         success, msg = self.on_save_cb(self.item.id if self.item else None, name, cat, price_str, avail)
         if success:

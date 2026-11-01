@@ -23,7 +23,7 @@ class OrderService:
     ) -> Tuple[bool, str, Optional[Order]]:
         """Creates a multi-item order with availability validation and line total calculation."""
         if not item_entries:
-            return False, "An order must contain at least one menu item.", None
+            return False, "Please add at least one item before proceeding.", None
 
         order_items: List[OrderItem] = []
         for menu_item_id, qty in item_entries:
@@ -44,6 +44,9 @@ class OrderService:
                 quantity=quantity
             )
             order_items.append(order_item)
+
+        if not order_items:
+            return False, "Please add at least one item before proceeding.", None
 
         try:
             table = table_number.strip() if table_number and table_number.strip() else "Takeaway"
@@ -81,6 +84,9 @@ class OrderService:
                 order_id=order_id
             )
             order_items.append(order_item)
+
+        if not order_items:
+            return False, "Please add at least one item before proceeding.", None
 
         try:
             self.order_repo.update_order_items(order_id, order_items)

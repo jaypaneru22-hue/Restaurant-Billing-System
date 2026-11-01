@@ -242,6 +242,7 @@ class NewOrderFrame(ctk.CTkFrame):
             fg_color=palette["bg_card"],
             text_color=palette["text_primary"],
             hover_color=palette["border"],
+            state="disabled",
             command=self._handle_save_pending
         )
         self.btn_save_pending.pack(side="left", expand=True, fill="x", padx=(0, 5))
@@ -253,6 +254,7 @@ class NewOrderFrame(ctk.CTkFrame):
             font=ctk.CTkFont(size=13, weight="bold"),
             fg_color=palette["accent"],
             hover_color=palette["accent_hover"],
+            state="disabled",
             command=self._handle_proceed_bill
         )
         self.btn_bill.pack(side="right", expand=True, fill="x", padx=(5, 0))
@@ -358,6 +360,8 @@ class NewOrderFrame(ctk.CTkFrame):
         self.lbl_cart_title.configure(text=f"🛒 Order Ticket ({total_items} items)")
 
         if not self.cart:
+            self.btn_bill.configure(state="disabled")
+            self.btn_save_pending.configure(state="disabled")
             empty_box = ctk.CTkFrame(self.cart_scroll, fg_color="transparent")
             empty_box.pack(pady=40)
             ctk.CTkLabel(
@@ -371,6 +375,9 @@ class NewOrderFrame(ctk.CTkFrame):
             self.lbl_est_tax.configure(text=f"{CURRENCY_SYMBOL}0.00")
             self.lbl_grand_total.configure(text=f"{CURRENCY_SYMBOL}0.00")
             return
+
+        self.btn_bill.configure(state="normal")
+        self.btn_save_pending.configure(state="normal")
 
         subtotal = Decimal("0.00")
         for item_id, data in self.cart.items():
@@ -467,8 +474,9 @@ class NewOrderFrame(ctk.CTkFrame):
         self._render_cart()
 
     def _create_order_record(self) -> Optional[int]:
+        palette = theme_manager.get_palette()
         if not self.cart:
-            self.lbl_order_error.configure(text="Please add at least one dish to the cart.")
+            self.lbl_order_error.configure(text="Please add at least one item before proceeding.", text_color=palette["danger"])
             return None
 
         user_id = self.auth_svc.current_user.id if self.auth_svc.current_user else 1
@@ -478,20 +486,27 @@ class NewOrderFrame(ctk.CTkFrame):
 
         ok, msg, order = self.order_svc.create_order(user_id, table, customer, item_entries)
         if not ok:
-            self.lbl_order_error.configure(text=msg)
+            self.lbl_order_error.configure(text=msg, text_color=palette["danger"])
             return None
 
         self.lbl_order_error.configure(text="")
         return order.id
 
     def _handle_save_pending(self):
+        palette = theme_manager.get_palette()
+        if not self.cart:
+            self.lbl_order_error.configure(text="Please add at least one item before proceeding.", text_color=palette["danger"])
+            return
         order_id = self._create_order_record()
         if order_id:
             self._clear_cart()
-            palette = theme_manager.get_palette()
             self.lbl_order_error.configure(text="✓ Order saved as PENDING ticket.", text_color=palette["success"])
 
     def _handle_proceed_bill(self):
+        palette = theme_manager.get_palette()
+        if not self.cart:
+            self.lbl_order_error.configure(text="Please add at least one item before proceeding.", text_color=palette["danger"])
+            return
         order_id = self._create_order_record()
         if order_id:
             self._clear_cart()

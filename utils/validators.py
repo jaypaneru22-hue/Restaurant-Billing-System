@@ -22,28 +22,77 @@ def validate_username(username: str) -> Tuple[bool, str]:
 
 
 def validate_price(price_input: str | float | Decimal | int) -> Tuple[bool, str, Optional[Decimal]]:
-    """Validates that a price is positive, non-zero, and has at most 2 decimal places."""
+    """Validates that a menu item price is a positive whole Indian Rupee amount.
+
+    Disallows decimal points/fractions, prices starting with a decimal point,
+    zero or negative amounts, and non-numeric characters.
+    Accepts whole numbers (e.g. 10, 50, 100, 250, 1000) and currency symbols (e.g. ₹50, ₹1,000).
+    """
     if price_input is None:
         return False, "Price cannot be empty.", None
-    try:
-        if isinstance(price_input, str):
-            price_str = price_input.strip()
-            if not price_str:
-                return False, "Price cannot be empty.", None
-            dec_price = Decimal(price_str)
-        else:
-            dec_price = Decimal(str(price_input))
-    except (InvalidOperation, TypeError, ValueError):
-        return False, "Price must be a valid numerical value.", None
 
-    if dec_price <= Decimal("0.00"):
-        return False, "Price must be greater than zero.", None
+    if isinstance(price_input, str):
+        price_str = price_input.strip()
+        if not price_str:
+            return False, "Price cannot be empty.", None
 
-    # Quantize to 2 decimal places to check fraction
-    if dec_price.as_tuple().exponent < -2:
-        return False, "Price cannot have more than 2 decimal places.", None
+        # Strip leading currency symbols: ₹, Rs., Rs, INR (case-insensitive)
+        clean_str = re.sub(r"^(₹|rs\.?|inr)\s*", "", price_str, flags=re.IGNORECASE).strip()
+        if not clean_str:
+            return False, "Price cannot be empty.", None
 
-    return True, "Price is valid.", dec_price.quantize(Decimal("0.01"))
+        # Reject inputs starting with a decimal point (e.g. .50)
+        if clean_str.startswith("."):
+            return False, "Price cannot start with a decimal point. Enter a whole rupee amount.", None
+
+        # Reject negative amounts
+        if clean_str.startswith("-"):
+            return False, "Price must be greater than zero.", None
+
+        # Check for decimal point
+        if "." in clean_str:
+            parts = clean_str.split(".")
+            if len(parts) > 2:
+                return False, "Price must be a valid whole number.", None
+            # Reject fractional paise (e.g. 10.50, 0.50)
+            if any(c != "0" for c in parts[1]):
+                return False, "Menu item price must be a whole rupee amount without decimal points.", None
+            int_part = parts[0]
+            if not int_part.isdigit() or int(int_part) <= 0:
+                return False, "Price must be greater than zero.", None
+            int_val = int(int_part)
+            return True, "Price is valid.", Decimal(str(int_val)).quantize(Decimal("0.01"))
+
+        # Strip standard thousands-separators (e.g. 1,000 -> 1000)
+        clean_num = clean_str.replace(",", "")
+        if not clean_num.isdigit():
+            return False, "Price must be a valid whole number.", None
+
+        int_val = int(clean_num)
+        if int_val <= 0:
+            return False, "Price must be greater than zero.", None
+
+        return True, "Price is valid.", Decimal(str(int_val)).quantize(Decimal("0.01"))
+
+    elif isinstance(price_input, int):
+        if price_input <= 0:
+            return False, "Price must be greater than zero.", None
+        return True, "Price is valid.", Decimal(str(price_input)).quantize(Decimal("0.01"))
+
+    elif isinstance(price_input, (Decimal, float)):
+        try:
+            dec = Decimal(str(price_input))
+        except (InvalidOperation, TypeError, ValueError):
+            return False, "Price must be a valid whole number.", None
+
+        if dec <= Decimal("0"):
+            return False, "Price must be greater than zero.", None
+        if dec % 1 != 0:
+            return False, "Menu item price must be a whole rupee amount without decimal points.", None
+        int_val = int(dec)
+        return True, "Price is valid.", Decimal(str(int_val)).quantize(Decimal("0.01"))
+
+    return False, "Price must be a valid whole number.", None
 
 
 def validate_menu_item(name: str, category: str, price_input: str | float | Decimal | int) -> Tuple[bool, str, Optional[Decimal]]:

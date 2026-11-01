@@ -27,25 +27,58 @@ def test_validate_username():
 
 
 def test_validate_price():
-    ok, _, val = validate_price("149.50")
-    assert ok is True
-    assert val == Decimal("149.50")
+    # Valid positive whole Rupee amounts
+    ok_50, _, val_50 = validate_price("₹50")
+    assert ok_50 is True
+    assert val_50 == Decimal("50.00")
+
+    ok_100, _, val_100 = validate_price("₹100")
+    assert ok_100 is True
+    assert val_100 == Decimal("100.00")
+
+    ok_1000, _, val_1000 = validate_price("₹1,000")
+    assert ok_1000 is True
+    assert val_1000 == Decimal("1000.00")
 
     ok_int, _, val_int = validate_price(250)
     assert ok_int is True
     assert val_int == Decimal("250.00")
 
-    zero_ok, _, _ = validate_price("0.00")
+    # Invalid: Zero or negative amounts
+    zero_ok, _, _ = validate_price("₹0")
     assert zero_ok is False
 
-    neg_ok, _, _ = validate_price("-10.00")
+    zero_str_ok, _, _ = validate_price("0")
+    assert zero_str_ok is False
+
+    neg_ok, _, _ = validate_price("-50")
     assert neg_ok is False
+
+    neg_dec_ok, _, _ = validate_price("-10.00")
+    assert neg_dec_ok is False
+
+    # Invalid: Decimal fractions and starting with decimal
+    dec_fraction_ok, _, _ = validate_price("10.50")
+    assert dec_fraction_ok is False
+
+    dot_start_ok, _, _ = validate_price(".50")
+    assert dot_start_ok is False
+
+    zero_dot_ok, _, _ = validate_price("0.50")
+    assert zero_dot_ok is False
+
+    # Invalid: Empty input or non-numeric text
+    empty_ok, _, _ = validate_price("")
+    assert empty_ok is False
+
+    none_ok, _, _ = validate_price(None)
+    assert none_ok is False
 
     invalid_str_ok, _, _ = validate_price("abc")
     assert invalid_str_ok is False
 
-    extra_decimals_ok, _, _ = validate_price("10.999")
-    assert extra_decimals_ok is False
+    special_char_ok, _, _ = validate_price("@#$")
+    assert special_char_ok is False
 
 
 def test_validate_menu_item():

@@ -105,14 +105,16 @@ The application provides a consistent top header bar, left navigation sidebar, a
 ### Step 2: Add Menu Items & Adjust Quantities
 1. Filter dishes using the category pill bar or type in the real-time search box.
 2. Click **"➕ Add"** on any dish to add it to the active order ticket.
+   - *Poka-Yoke Guard:* Menu item prices are strictly validated as positive whole Indian Rupee amounts (e.g. ₹50, ₹100, ₹250). Decimal points (such as `10.50` or `.50`) are rejected at both UI and service levels.
 3. In the cart panel:
    - Use the **`+`** and **`-`** buttons to adjust quantities.
    - Click the red **`✕`** icon to delete a single item, or click **"Clear Cart"** to reset the ticket.
    - The ticket subtotal, estimated GST, and grand total update automatically in real time.
 
 ### Step 3: Settle the Bill & Process Payment
-1. Click **"Proceed to Payment 💳"** (or click **"Save Pending ⏳"** to hold the ticket).
-2. The **POS Settlement Modal** opens with guaranteed bottom action bar visibility (pinned bottom controls):
+1. **Empty Order Prevention:** The **"Proceed to Payment 💳"** and **"Save Pending ⏳"** buttons are automatically disabled while the cart is empty. If directly triggered, the application rejects the action with a clear warning: *"Please add at least one item before proceeding."* No empty records or partial transactions can ever be committed to SQLite.
+2. Once at least one dish is added, click **"Proceed to Payment 💳"** (or click **"Save Pending ⏳"** to hold the ticket).
+3. The **POS Settlement Modal** opens with guaranteed bottom action bar visibility (pinned bottom controls):
    - **Order Summary:** Line items review with exact unit prices and quantities.
    - **Financial Calculations:** Live Discount % and GST % inputs with immediate Decimal recalculation.
    - **Payment Method Selector:** Choose between `CASH`, `CARD`, or `UPI`:

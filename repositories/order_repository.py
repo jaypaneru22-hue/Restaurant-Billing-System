@@ -72,6 +72,9 @@ class OrderRepository:
 
     def create_order(self, user_id: int, table_number: str, customer_name: str, items: List[OrderItem]) -> Order:
         """Atomically persists an order and its line items."""
+        if not items:
+            raise ValueError("Please add at least one item before proceeding.")
+
         from datetime import datetime
         order_number = self.generate_order_number()
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

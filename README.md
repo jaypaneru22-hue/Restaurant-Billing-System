@@ -110,11 +110,12 @@ TQM/
 │   ├── pdca_log.csv
 │   └── generate_charts.py
 │
-├── tests/                      # Automated pytest unit & integration test suite (89 tests)
+├── tests/                      # Automated pytest unit & integration test suite (100 tests)
 │   ├── __init__.py
 │   ├── conftest.py             # Shared pytest fixtures & temporary database factory
 │   ├── test_auth_service.py
 │   ├── test_billing_service.py # Bill breakdown, receipt printing & fallback tests
+│   ├── test_critical_validations.py # Empty orders, whole rupee validation & billing tests
 │   ├── test_dashboard_service.py
 │   ├── test_database.py
 │   ├── test_database_manager.py
@@ -230,7 +231,7 @@ The project includes an administration CLI utility [`scripts/manage_db.py`](scri
 
 ## 🧪 Automated Testing Suite
 
-The project includes **89 automated unit and integration tests** (100% pass rate) with zero external network dependencies:
+The project includes **100 automated unit and integration tests** (100% pass rate) with zero external network dependencies:
 
 ```powershell
 # Run the complete test suite

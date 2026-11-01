@@ -133,18 +133,18 @@ class BillingService:
         for item in order.items:
             name = item.item_name[:20]
             lines.append(
-                f"{name:<22}{item.quantity:>4} {str(item.unit_price):>8} {str(item.line_total):>10}"
+                f"{name:<22}{item.quantity:>4} {Decimal(str(item.unit_price)):>8.2f} {Decimal(str(item.line_total)):>10.2f}"
             )
 
         lines.append("-" * width)
-        lines.append(f"{'Subtotal:':<34} {CURRENCY_SYMBOL}{str(bill.subtotal):>10}")
+        lines.append(f"{'Subtotal:':<34} {CURRENCY_SYMBOL}{Decimal(str(bill.subtotal)):>10.2f}")
 
         if bill.discount_percent > Decimal("0.00"):
-            lines.append(f"{f'Discount ({bill.discount_percent}%):':<34}-{CURRENCY_SYMBOL}{str(bill.discount_amount):>10}")
+            lines.append(f"{f'Discount ({Decimal(str(bill.discount_percent)):.2f}%):':<34}-{CURRENCY_SYMBOL}{Decimal(str(bill.discount_amount)):>10.2f}")
 
-        lines.append(f"{f'GST ({bill.tax_rate}%):':<34} {CURRENCY_SYMBOL}{str(bill.tax_amount):>10}")
+        lines.append(f"{f'GST ({Decimal(str(bill.tax_rate)):.2f}%):':<34} {CURRENCY_SYMBOL}{Decimal(str(bill.tax_amount)):>10.2f}")
         lines.append("=" * width)
-        lines.append(f"{'NET PAYABLE AMOUNT:':<34} {CURRENCY_SYMBOL}{str(bill.final_total):>10}")
+        lines.append(f"{'NET PAYABLE AMOUNT:':<34} {CURRENCY_SYMBOL}{Decimal(str(bill.final_total)):>10.2f}")
         lines.append("=" * width)
         lines.append(f"Payment Method: {bill.payment_method}  |  Status: {bill.payment_status}")
         lines.append("-" * width)
