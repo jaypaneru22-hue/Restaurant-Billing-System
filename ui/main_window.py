@@ -190,7 +190,7 @@ class MainWindow(ctk.CTkFrame):
         workspace.pack(fill="both", expand=True)
 
         # Left Navigation Sidebar
-        self.sidebar_frame = ctk.CTkFrame(workspace, width=200, fg_color=palette["bg_secondary"], corner_radius=0, border_width=1, border_color=palette["border"])
+        self.sidebar_frame = ctk.CTkFrame(workspace, width=220, fg_color=palette["bg_secondary"], corner_radius=0, border_width=1, border_color=palette["border"])
         self.sidebar_frame.pack(side="left", fill="y")
         self.sidebar_frame.pack_propagate(False)
 
@@ -198,28 +198,28 @@ class MainWindow(ctk.CTkFrame):
         self.nav_buttons = {}
         nav_items = [
             ("dashboard", "📊 Dashboard", "Alt+D"),
-            ("orders", "➕ New Order", "Alt+N"),
+            ("orders", "➕ New POS Order", "Alt+N"),
             ("menu", "📋 Menu Catalog", "Alt+M"),
             ("orders_history", "📜 Orders History", "Alt+O"),
             ("reports", "📈 Visual Reports", "Alt+R"),
             ("profile", "👤 User Profile", "Alt+P"),
         ]
 
-        ctk.CTkLabel(self.sidebar_frame, text="MAIN NAVIGATION", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"]).pack(anchor="w", padx=15, pady=(15, 6))
+        ctk.CTkLabel(self.sidebar_frame, text="MAIN NAVIGATION", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"]).pack(anchor="w", padx=16, pady=(16, 8))
 
         for code, label, key_hint in nav_items:
             btn = ctk.CTkButton(
                 self.sidebar_frame,
                 text=f"{label}  ({key_hint})",
                 anchor="w",
-                height=38,
-                font=ctk.CTkFont(size=12),
+                height=40,
+                font=ctk.CTkFont(size=12, weight="bold"),
                 fg_color="transparent",
                 text_color=palette["text_primary"],
                 hover_color=palette["bg_card"],
                 command=lambda c=code: self.navigate_to(c)
             )
-            btn.pack(fill="x", padx=10, pady=2)
+            btn.pack(fill="x", padx=10, pady=3)
             self.nav_buttons[code] = btn
 
         # Content Area Container

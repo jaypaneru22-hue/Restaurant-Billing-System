@@ -7,7 +7,7 @@ from config.settings import CURRENCY_SYMBOL
 
 
 class DashboardFrame(ctk.CTkFrame):
-    """Real-time operational dashboard with metric cards, recent orders, and top items."""
+    """Real-time operational dashboard with elevated metric cards, recent orders, and top items."""
 
     def __init__(self, master, navigate_fn: Callable[[str], None], dashboard_svc: DashboardService = dashboard_service, **kwargs):
         super().__init__(master, **kwargs)
@@ -36,15 +36,17 @@ class DashboardFrame(ctk.CTkFrame):
 
         title_box = ctk.CTkFrame(header, fg_color="transparent")
         title_box.pack(side="left")
+
         ctk.CTkLabel(
             title_box,
             text="📊 Operational Dashboard",
             font=ctk.CTkFont(size=22, weight="bold"),
             text_color=palette["text_primary"]
         ).pack(anchor="w")
+
         ctk.CTkLabel(
             title_box,
-            text="Real-time Point-of-Sale metrics & continuous quality monitoring",
+            text="Real-time Point-of-Sale metrics & continuous quality monitoring (Q08-F1)",
             font=ctk.CTkFont(size=12),
             text_color=palette["text_secondary"]
         ).pack(anchor="w")
@@ -58,33 +60,56 @@ class DashboardFrame(ctk.CTkFrame):
             text="🔄 Refresh",
             width=90,
             height=34,
+            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=palette["bg_card"],
             hover_color=palette["bg_secondary"],
             text_color=palette["text_primary"],
             command=self.refresh_data
         )
-        refresh_btn.pack(side="right", padx=5)
+        refresh_btn.pack(side="right", padx=4)
+
+        reports_btn = ctk.CTkButton(
+            actions_box,
+            text="📈 Analytics",
+            width=95,
+            height=34,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["bg_card"],
+            hover_color=palette["bg_secondary"],
+            text_color=palette["accent"],
+            command=lambda: self.navigate("reports")
+        )
+        reports_btn.pack(side="right", padx=4)
 
         new_ord_btn = ctk.CTkButton(
             actions_box,
-            text="➕ New Order",
-            width=110,
+            text="➕ New POS Order",
+            width=130,
             height=34,
+            font=ctk.CTkFont(size=12, weight="bold"),
             fg_color=palette["accent"],
             hover_color=palette["accent_hover"],
             command=lambda: self.navigate("orders")
         )
-        new_ord_btn.pack(side="right", padx=5)
+        new_ord_btn.pack(side="right", padx=4)
 
         # KPI Metric Cards Container (4 cards in a grid)
         self.kpi_container = ctk.CTkFrame(self, fg_color="transparent")
-        self.kpi_container.pack(fill="x", padx=25, pady=(0, 20))
+        self.kpi_container.pack(fill="x", padx=25, pady=(0, 16))
         self.kpi_container.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="kpi")
 
-        self.card_sales = self._create_metric_card(self.kpi_container, 0, "💰 Today's Sales", f"{CURRENCY_SYMBOL}0.00", palette["success"])
-        self.card_completed = self._create_metric_card(self.kpi_container, 1, "🧾 Completed Orders", "0", palette["accent"])
-        self.card_pending = self._create_metric_card(self.kpi_container, 2, "⏳ Pending Orders", "0", palette["warning"])
-        self.card_aov = self._create_metric_card(self.kpi_container, 3, "📈 Avg Order Value", f"{CURRENCY_SYMBOL}0.00", palette["text_primary"])
+        self.card_sales, self.sub_sales = self._create_metric_card(
+            self.kpi_container, 0, "💰 Today's Net Sales", f"{CURRENCY_SYMBOL}0.00", "Billed revenue today", palette["success"]
+        )
+        self.card_completed, self.sub_completed = self._create_metric_card(
+            self.kpi_container, 1, "🧾 Completed Invoices", "0", "Settled & paid orders", palette["accent"]
+        )
+        self.card_pending, self.sub_pending = self._create_metric_card(
+            self.kpi_container, 2, "⏳ Pending Orders", "0", "Awaiting cashier billing", palette["warning"]
+        )
+        self.card_aov, self.sub_aov = self._create_metric_card(
+            self.kpi_container, 3, "📈 Avg Order Value", f"{CURRENCY_SYMBOL}0.00", "Revenue per completed ticket", palette["text_primary"]
+        )
 
         # Split Lower Section (Recent Orders & Top Items)
         content_split = ctk.CTkFrame(self, fg_color="transparent")
@@ -98,44 +123,60 @@ class DashboardFrame(ctk.CTkFrame):
         self.recent_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
         recent_header = ctk.CTkFrame(self.recent_frame, fg_color="transparent")
-        recent_header.pack(fill="x", padx=20, pady=15)
+        recent_header.pack(fill="x", padx=18, pady=(16, 10))
+
         ctk.CTkLabel(
             recent_header,
-            text="Recent Transactions",
-            font=ctk.CTkFont(size=16, weight="bold"),
+            text="Recent Point-of-Sale Transactions",
+            font=ctk.CTkFont(size=15, weight="bold"),
             text_color=palette["text_primary"]
         ).pack(side="left")
+
         ctk.CTkButton(
             recent_header,
-            text="View All",
-            width=70,
+            text="View All Orders →",
+            width=110,
             height=26,
-            font=ctk.CTkFont(size=11),
+            font=ctk.CTkFont(size=11, weight="bold"),
             fg_color="transparent",
             hover_color=palette["bg_secondary"],
+            text_color=palette["accent"],
             command=lambda: self.navigate("orders_history")
         ).pack(side="right")
 
         self.recent_list_box = ctk.CTkScrollableFrame(self.recent_frame, fg_color="transparent")
-        self.recent_list_box.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        self.recent_list_box.pack(fill="both", expand=True, padx=12, pady=(0, 12))
 
         # Right Panel: Popular Menu Items
         self.popular_frame = ctk.CTkFrame(content_split, fg_color=palette["bg_card"], corner_radius=12, border_width=1, border_color=palette["border"])
         self.popular_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
 
         popular_header = ctk.CTkFrame(self.popular_frame, fg_color="transparent")
-        popular_header.pack(fill="x", padx=20, pady=15)
+        popular_header.pack(fill="x", padx=18, pady=(16, 10))
+
         ctk.CTkLabel(
             popular_header,
             text="🔥 Top Selling Dishes",
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=ctk.CTkFont(size=15, weight="bold"),
             text_color=palette["text_primary"]
         ).pack(side="left")
 
-        self.popular_list_box = ctk.CTkScrollableFrame(self.popular_frame, fg_color="transparent")
-        self.popular_list_box.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        ctk.CTkButton(
+            popular_header,
+            text="Catalog →",
+            width=70,
+            height=26,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="transparent",
+            hover_color=palette["bg_secondary"],
+            text_color=palette["accent"],
+            command=lambda: self.navigate("menu")
+        ).pack(side="right")
 
-    def _create_metric_card(self, parent, col, title, initial_value, value_color):
+        self.popular_list_box = ctk.CTkScrollableFrame(self.popular_frame, fg_color="transparent")
+        self.popular_list_box.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+
+    def _create_metric_card(self, parent, col, title, initial_value, subtext, value_color):
         palette = theme_manager.get_palette()
         card = ctk.CTkFrame(parent, fg_color=palette["bg_card"], corner_radius=12, border_width=1, border_color=palette["border"])
         card.grid(row=0, column=col, sticky="ew", padx=6)
@@ -145,16 +186,25 @@ class DashboardFrame(ctk.CTkFrame):
             text=title,
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color=palette["text_secondary"]
-        ).pack(anchor="w", padx=16, pady=(14, 4))
+        ).pack(anchor="w", padx=16, pady=(14, 2))
 
         val_lbl = ctk.CTkLabel(
             card,
             text=initial_value,
-            font=ctk.CTkFont(size=20, weight="bold"),
+            font=ctk.CTkFont(size=22, weight="bold"),
             text_color=value_color
         )
-        val_lbl.pack(anchor="w", padx=16, pady=(0, 14))
-        return val_lbl
+        val_lbl.pack(anchor="w", padx=16, pady=(0, 2))
+
+        sub_lbl = ctk.CTkLabel(
+            card,
+            text=subtext,
+            font=ctk.CTkFont(size=10),
+            text_color=palette["text_secondary"]
+        )
+        sub_lbl.pack(anchor="w", padx=16, pady=(0, 12))
+
+        return val_lbl, sub_lbl
 
     def refresh_data(self):
         """Fetches fresh metrics from database and updates GUI widgets."""
@@ -174,28 +224,38 @@ class DashboardFrame(ctk.CTkFrame):
         if not metrics["recent_orders"]:
             ctk.CTkLabel(
                 self.recent_list_box,
-                text="No orders recorded yet. Click '+ New Order' to begin.",
+                text="No orders recorded yet. Click '+ New POS Order' to begin.",
                 font=ctk.CTkFont(size=12),
                 text_color=palette["text_secondary"]
             ).pack(pady=30)
         else:
             for ord_data in metrics["recent_orders"]:
-                item_row = ctk.CTkFrame(self.recent_list_box, fg_color=palette["bg_secondary"], corner_radius=8)
-                item_row.pack(fill="x", pady=4, padx=2)
+                item_row = ctk.CTkFrame(self.recent_list_box, fg_color=palette["bg_secondary"], corner_radius=8, border_width=1, border_color=palette["border"])
+                item_row.pack(fill="x", pady=3, padx=2)
 
                 info_box = ctk.CTkFrame(item_row, fg_color="transparent")
                 info_box.pack(side="left", padx=12, pady=8)
 
+                title_line = ctk.CTkFrame(info_box, fg_color="transparent")
+                title_line.pack(anchor="w")
+
                 ctk.CTkLabel(
-                    info_box,
-                    text=f"{ord_data['order_number']}  •  {ord_data['customer_name']}",
+                    title_line,
+                    text=ord_data["order_number"],
+                    font=ctk.CTkFont(family="Consolas", size=12, weight="bold"),
+                    text_color=palette["text_primary"]
+                ).pack(side="left")
+
+                ctk.CTkLabel(
+                    title_line,
+                    text=f"  •  {ord_data['customer_name']} ({ord_data['table_number']})",
                     font=ctk.CTkFont(size=12, weight="bold"),
                     text_color=palette["text_primary"]
-                ).pack(anchor="w")
+                ).pack(side="left")
 
                 ctk.CTkLabel(
                     info_box,
-                    text=f"Table: {ord_data['table_number']}  |  {ord_data['created_at'] or ''}",
+                    text=f"{ord_data['created_at'] or ''}",
                     font=ctk.CTkFont(size=10),
                     text_color=palette["text_secondary"]
                 ).pack(anchor="w")
@@ -214,12 +274,14 @@ class DashboardFrame(ctk.CTkFrame):
                     text_color=palette["text_primary"]
                 ).pack(anchor="e")
 
+                badge = ctk.CTkFrame(right_box, fg_color=palette["bg_card"], corner_radius=4, border_width=1, border_color=status_color)
+                badge.pack(anchor="e", pady=(2, 0))
                 ctk.CTkLabel(
-                    right_box,
-                    text=ord_data["status"],
+                    badge,
+                    text=f"● {ord_data['status']}",
                     font=ctk.CTkFont(size=10, weight="bold"),
                     text_color=status_color
-                ).pack(anchor="e")
+                ).pack(padx=6, pady=1)
 
         # Clear and populate Popular Items
         for child in self.popular_list_box.winfo_children():
@@ -228,21 +290,21 @@ class DashboardFrame(ctk.CTkFrame):
         if not metrics["popular_items"]:
             ctk.CTkLabel(
                 self.popular_list_box,
-                text="No sales data available yet.",
+                text="No dish sales recorded yet.",
                 font=ctk.CTkFont(size=12),
                 text_color=palette["text_secondary"]
             ).pack(pady=30)
         else:
             for rank, pop in enumerate(metrics["popular_items"], start=1):
-                item_row = ctk.CTkFrame(self.popular_list_box, fg_color=palette["bg_secondary"], corner_radius=8)
-                item_row.pack(fill="x", pady=4, padx=2)
+                item_row = ctk.CTkFrame(self.popular_list_box, fg_color=palette["bg_secondary"], corner_radius=8, border_width=1, border_color=palette["border"])
+                item_row.pack(fill="x", pady=3, padx=2)
 
                 left = ctk.CTkFrame(item_row, fg_color="transparent")
                 left.pack(side="left", padx=10, pady=8)
 
                 ctk.CTkLabel(
                     left,
-                    text=f"#{rank} {pop['name']}",
+                    text=f"#{rank}  {pop['name']}",
                     font=ctk.CTkFont(size=12, weight="bold"),
                     text_color=palette["text_primary"]
                 ).pack(anchor="w")
@@ -254,9 +316,11 @@ class DashboardFrame(ctk.CTkFrame):
                     text_color=palette["text_secondary"]
                 ).pack(anchor="w")
 
+                pill = ctk.CTkFrame(item_row, fg_color=palette["accent"], corner_radius=10)
+                pill.pack(side="right", padx=12, pady=8)
                 ctk.CTkLabel(
-                    item_row,
+                    pill,
                     text=f"{pop['quantity_sold']} sold",
-                    font=ctk.CTkFont(size=12, weight="bold"),
-                    text_color=palette["accent"]
-                ).pack(side="right", padx=12, pady=8)
+                    font=ctk.CTkFont(size=11, weight="bold"),
+                    text_color="#ffffff"
+                ).pack(padx=8, pady=3)
