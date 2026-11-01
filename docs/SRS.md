@@ -128,20 +128,25 @@ Traditional entry-level restaurant billing software often suffers from:
 - **FR-051:** Charts shall adapt dynamically to the active color theme (dark background in dark mode, light background in light mode).
 - **FR-052:** When no transaction data exists for a period, the report view shall display a clean "No data available for selected period" placeholder rather than crashing.
 
-### Feature 3: Persistent Theme Toggle (Q08-F3)
-- **FR-060:** The system shall allow switching between Light Mode and Dark Mode at any time.
-- **FR-061:** Theme changes shall apply dynamically across all views without requiring application restart.
-- **FR-062:** The selected theme preference shall be persisted in the user settings table in the database and restored automatically upon subsequent logins.
+### Feature 3: Persistent Theme Toggle & Design Direction (Q08-F3)
+- **FR-060:** The system shall feature a professional default design system comprising a **Blue Left Navigation Sidebar (`#173B70` navy)**, **Clean White Workspace (`#FFFFFF`)**, dark navy headings (`#173B70`), and primary blue action buttons (`#2563EB`).
+- **FR-061:** The system shall allow toggling between Light Mode (Navy Sidebar + White Workspace) and Dark Mode (Deep Slate Navy) at any time via header button or `Alt+T`.
+- **FR-062:** Theme changes shall apply dynamically across all views without requiring application restart.
+- **FR-063:** The selected theme preference shall be persisted in the user settings table in the database and restored automatically upon subsequent logins.
 
-### Feature 4: Keyboard Shortcuts (Q08-F4)
+### Feature 4: Keyboard Shortcuts & Poka-Yoke Focus Guards (Q08-F4)
 - **FR-070:** The system shall provide keyboard accelerators for primary navigation:
   - `Alt+N` / `Ctrl+N`: Navigate to New Order creation.
   - `Alt+D` / `Ctrl+D`: Navigate to Interactive Dashboard.
   - `Alt+M` / `Ctrl+M`: Navigate to Menu Management.
+  - `Alt+O` / `Ctrl+O`: Navigate to Order History.
   - `Alt+R` / `Ctrl+R`: Navigate to Visual Reports.
-  - `Alt+P` / `Ctrl+P`: Navigate to User Profile Settings.
+  - `Alt+P` / `Ctrl+P`: Navigate to User Profile.
+  - `Alt+S` / `Ctrl+S`: Navigate to System Settings.
+  - `Alt+T`: Toggle Theme Mode (Light / Dark).
   - `Escape`: Close active modal dialog or clear current selection.
-- **FR-071:** Shortcuts shall be visibly annotated on buttons and listed in the User Manual.
+- **FR-071:** Poka-Yoke Focus Guard: The system shall detect when keyboard focus is actively inside an `Entry` or `Textbox` widget, automatically preventing global navigation accelerators from interfering with operator text input.
+- **FR-072:** Shortcuts shall be visibly annotated on buttons and listed in the dedicated Keyboard Accelerators Help dialog.
 
 ### Feature 5: User Profile Settings (Q08-F5)
 - **FR-080:** The system shall allow the logged-in user to view their account information (Username, Full Name, Role, Created Date).

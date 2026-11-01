@@ -22,15 +22,17 @@ A production-grade, modular Desktop Restaurant Billing and Point-of-Sale (POS) S
 
 ---
 
-## 🎯 Assigned Q08 Quality Features
+## 🎯 Assigned Q08 Quality Features & Modern POS Interface
+
+The application features a modern, high-contrast POS interface styled with a **Deep Blue / Navy Left Navigation Sidebar (`#173B70`)**, **Clean White Workspace Surfaces (`#FFFFFF`)**, dark navy headings, and primary blue action buttons (`#2563EB`).
 
 To fulfill **Quality Goal Q08 (Improve User Satisfaction)**, this system integrates five dedicated quality features directly into the core workflow:
 
-1. **📊 Interactive Live Dashboard:** Real-time calculation of today's sales revenue, completed orders count, pending order volume, average order value (AOV), recent orders list, and top 5 best-selling menu items.
-2. **📈 Visual Analytical Reports:** Embedded Matplotlib charts illustrating daily sales trends, top-selling dishes, order fulfillment distribution, and payment method share.
-3. **🌓 Persistent Theme Toggle:** Seamless switching between Dark Mode and Light Mode with user preference persisted in SQLite and restored automatically across sessions.
-4. **⌨️ Cashier Keyboard Shortcuts:** Rapid transaction accelerators (`Alt+N` for New Order, `Alt+D` for Dashboard, `Alt+M` for Menu, `Alt+R` for Reports, `Alt+P` for Profile, `Esc` to cancel/dismiss).
-5. **👤 User Profile & Preference Settings:** Secure profile viewer, display name updater, password change with hash verification, and persistent theme controls.
+1. **📊 Interactive Live Dashboard (Q08-F1):** Real-time calculation of today's sales revenue, completed orders count, pending order volume, average order value (AOV), recent orders list, and top 5 best-selling menu items directly from SQLite queries.
+2. **📈 Visual Analytical Reports (Q08-F2):** Embedded Matplotlib charts illustrating daily sales trends, top-selling dishes, order fulfillment distribution, and payment method share with memory leak protection and dynamic light/dark styling.
+3. **🌓 Persistent Theme Toggle (Q08-F3):** Seamless switching between the default Light Mode (Navy Sidebar + White Workspace) and Dark Mode (Deep Slate Navy) with user preference persisted in SQLite and restored automatically across sessions.
+4. **⌨️ Cashier Keyboard Shortcuts & Focus Guards (Q08-F4):** Rapid transaction accelerators (`Alt+N` POS, `Alt+D` Dashboard, `Alt+M` Menu, `Alt+O` Order History, `Alt+R` Reports, `Alt+P` Profile, `Alt+S` Settings, `Alt+T` Theme, `Esc` Cancel/Dismiss) equipped with Poka-Yoke focus guards preventing shortcuts from triggering while typing in text inputs.
+5. **👤 User Profile & System Settings (Q08-F5):** Dual-tab settings interface with display name updater, password change with PBKDF2 hash verification, and persistent tax rate / workspace theme controls.
 
 ---
 
@@ -107,7 +109,7 @@ TQM/
 │   ├── pdca_log.csv
 │   └── generate_charts.py
 │
-├── tests/                      # Automated pytest unit & integration test suite (63 tests)
+├── tests/                      # Automated pytest unit & integration test suite (83 tests)
 │   ├── __init__.py
 │   ├── conftest.py             # Shared pytest fixtures & temporary database factory
 │   ├── test_auth_service.py
@@ -120,9 +122,11 @@ TQM/
 │   ├── test_menu_service.py
 │   ├── test_models.py
 │   ├── test_order_service.py
+│   ├── test_payment_workflow.py # 16 Cash/Card/UPI simulated payment tests
 │   ├── test_profile_service.py
 │   ├── test_report_service.py
 │   ├── test_security.py
+│   ├── test_shortcuts.py       # Keyboard accelerators & input guard tests
 │   ├── test_theme_manager.py
 │   └── test_validators.py
 │

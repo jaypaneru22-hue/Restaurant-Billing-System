@@ -99,16 +99,16 @@ During the development and testing lifecycle, defects were systematically tracke
 4. **System Verification & Usability Trial**
 
 ### 5.1 Defect Classification Checksheet
-- **Financial & Calculation Exactness:** 4 defects (28.57%)
-- **Input Validation & Poka-Yoke:** 3 defects (21.43%)
-- **Data Integrity & Persistence:** 3 defects (21.43%)
-- **User Experience & Preferences:** 2 defects (14.29%)
-- **Error Handling & UI Messaging:** 1 defect (7.14%)
-- **Keyboard Ergonomics & Shortcuts:** 1 defect (7.14%)
-- **Total Observed Defects:** 14 (100.00%)
+- **Financial & Calculation Exactness:** 4 defects (26.67%)
+- **Input Validation & Poka-Yoke:** 3 defects (20.00%)
+- **Data Integrity & Persistence:** 3 defects (20.00%)
+- **User Experience & Preferences:** 2 defects (13.33%)
+- **Keyboard Ergonomics & Shortcuts:** 2 defects (13.33%)
+- **Error Handling & UI Messaging:** 1 defect (6.67%)
+- **Total Observed Defects:** 15 (100.00%)
 
 ### 5.2 Pareto Principle (80/20 Rule) Interpretation
-The Pareto chart illustrates that the top three defect categories—**Financial Exactness (28.6%)**, **Input Validation (21.4%)**, and **Data Integrity (21.4%)**—account for **71.43%** of all defects, and together with User Experience reach **85.71%**.
+The Pareto chart illustrates that the top three defect categories—**Financial Exactness (26.7%)**, **Input Validation (20.0%)**, and **Data Integrity (20.0%)**—account for **66.67%** of all defects, and together with User Experience & Preferences reach **80.00%**, perfectly matching the classical Juran Pareto 80/20 principle.
 
 ![Pareto Analysis Chart](../quality/pareto_chart.png)
 
@@ -140,26 +140,34 @@ Poka-Yoke is the Japanese quality concept of designing systems so that human err
 3. **Immutability of Closed Orders:** Once an order transitions to `COMPLETED` or `CANCELLED`, all modification and re-billing operations are blocked by state-machine validation guards in `services/order_service.py`.
 4. **Historical Price Protection:** Order items snapshot dish names and unit prices at the time of purchase. If the chef alters prices in the menu catalog next week, past financial invoices remain 100% accurate.
 5. **Atomic Transaction Rollback:** If any error occurs while generating a bill or updating order status, the `DatabaseManager.transaction()` context manager rolls back the entire SQLite transaction, preventing half-saved orphan records.
+6. **Keyboard Focus Guard:** Shortcuts are programmatically suspended when text input widgets (`Entry` / `Textbox`) have focus, preventing accidental tab switching while typing customer or dish names.
+7. **Pinned Action Bar Architecture:** Critical modal confirm/pay buttons are pinned to the bottom of dialogs with `side="bottom"`, guaranteeing they are never pushed off-screen regardless of laptop display resolution.
 
 ---
 
 ## 8. PDCA Continuous Improvement (Kaizen) Cycles
 
-Five formal Plan-Do-Check-Act cycles were executed during the project:
+Eight formal Plan-Do-Check-Act cycles were executed during the project:
 
 - **Cycle PDCA-01 (Billing Precision):** Discovered float rounding errors; planned and migrated all money math to Python `Decimal`; verified with automated unit tests; standardized across all billing services.
 - **Cycle PDCA-02 (Data Integrity):** Discovered menu catalog price updates altered historical invoices; added snapshot columns to `order_items`; verified with test suite; standardized schema snapshot rules.
 - **Cycle PDCA-03 (Poka-Yoke Validation):** Discovered negative price vulnerabilities; created centralized validation utility; verified with 13 boundary test cases; enforced in both GUI and service layers.
 - **Cycle PDCA-04 (Theme Mode Persistence - Q08-F3):** Discovered theme reset on restart; implemented SQLite `user_settings` table and persistent repository; verified across application restarts; established permanent operator workspace personalization.
 - **Cycle PDCA-05 (Checkout Ergonomics - Q08-F4):** Discovered cashier speed bottlenecks; bound global keyboard accelerators (`Alt+N`, `Alt+D`, `Alt+M`, etc.); measured checkout latency drop from 45s to 14s; added on-screen shortcuts guide.
+- **Cycle PDCA-06 (Deployment & Windows Governance):** Discovered PowerShell script execution blockers on Windows; built direct virtual environment launcher (`run_app.bat`) and database admin CLI (`scripts/manage_db.py`); verified zero execution errors.
+- **Cycle PDCA-07 (Payment Reliability & POS UI Modernization):** Fixed payment confirmation button clipped on 1366x768 screens (DEF-013); introduced fixed bottom action bar; implemented interactive Cash/Demo Card/Demo UPI simulation; verified with 16 automated tests.
+- **Cycle PDCA-08 (Visual Design System & Focus Ergonomics):** Implemented user-specified Blue Left Navigation Sidebar (`#173B70` navy) and Clean White Workspace (`#FFFFFF`); added Settings view in sidebar; added Poka-Yoke input-field focus guard preventing accidental shortcut triggering during text editing; verified with 83 automated tests and full GUI lifecycle smoke test.
 
 ---
 
 ## 9. Academic Conclusion & Project Verification
 
 By grounding the software development process in Total Quality Management principles, the Restaurant Billing System achieves:
-- **Zero Financial Discrepancies:** Fully proven by 45 automated unit and integration tests.
+- **Zero Financial Discrepancies:** Fully proven by 83 automated unit and integration tests passing at 100%.
 - **Full Q08 Quality Delivery:** All five required features (Interactive Dashboard, Visual Reports, Theme Toggle, Keyboard Shortcuts, User Profile Settings) are fully implemented with real persistent database integration.
-- **Auditable Quality Record:** FMEA matrices, defect logs, Pareto charts, and Ishikawa diagrams document every phase of engineering.
+- **Professional Design System:** Deep blue navigation sidebar (`#173B70`) + clean white workspace (`#FFFFFF`) with dark navy headings and blue primary action buttons, engineered specifically for high-efficiency cashier ergonomics.
+- **Auditable Quality Record:** FMEA matrices, defect logs, checksheet tables, Pareto charts, and Ishikawa diagrams document every phase of engineering.
+
+The project demonstrates that software engineering and Total Quality Management are intrinsically linked: systematic quality control tools yield demonstrably better, more reliable, and user-centric software.
 
 The project demonstrates that software engineering and Total Quality Management are intrinsically linked: systematic quality control tools yield demonstrably better, more reliable, and user-centric software.

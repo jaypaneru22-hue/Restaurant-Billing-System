@@ -5,25 +5,25 @@
 - **Student Name:** Jay Paneru
 - **Registration Number:** 2410302024
 - **Assigned Quality Goal:** Q08 — Improve User Satisfaction
-- **Test Date:** 2026-10-31
+- **Test Date:** 2026-11-01
 - **Environment:** Windows 11, Python 3.12.10, pytest 9.1.1
-- **Overall Status:** **PASSED (100% Pass Rate — 79/79 Tests)**
+- **Overall Status:** **PASSED (100% Pass Rate — 83/83 Tests)**
 
 ---
 
 ## 1. Executive Summary
 
-A comprehensive automated test suite consisting of **79 distinct unit and integration test cases** was executed against an isolated, temporary SQLite test database, alongside an automated full GUI lifecycle smoke test covering all CustomTkinter POS frames, simulated payment dialogs, and Matplotlib embedded charts.
+A comprehensive automated test suite consisting of **83 distinct unit and integration test cases** was executed against an isolated, temporary SQLite test database, alongside an automated full GUI lifecycle smoke test covering all CustomTkinter POS frames, simulated payment dialogs, and Matplotlib embedded charts.
 
 | Metric | Result |
 |--------|--------|
-| **Total Test Cases** | **79** |
-| **Passed** | **79** |
+| **Total Test Cases** | **83** |
+| **Passed** | **83** |
 | **Failed** | **0** |
 | **Skipped** | **0** |
 | **Pass Rate** | **100.0%** |
-| **Total Duration** | **35.07 seconds** |
-| **GUI Smoke Test** | **100% Passed (Zero Exceptions across all 8 stages)** |
+| **Total Duration** | **39.35 seconds** |
+| **GUI Smoke Test** | **100% Passed (Zero Exceptions across all 8 stages including 7 navigation views)** |
 
 ---
 
