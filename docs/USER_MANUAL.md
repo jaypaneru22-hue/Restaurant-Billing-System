@@ -92,35 +92,42 @@ The application provides a consistent top header bar, left navigation sidebar, a
 
 ---
 
-## 4. End-to-End Cashier Billing Workflow
+## 4. End-to-End Cashier Point-of-Sale (POS) Workflow
 
-### Step 1: Open New Order Cart
-1. Press `Alt+N` or click **"➕ New Order"**.
-2. Enter the **Table No** (e.g., `Table 4` or `Takeaway`) and **Customer Name**.
+### Step 1: Open Point of Sale View
+1. Press `Alt+N` or click **"➕ New POS Order"** on the navigation sidebar.
+2. The POS view features a responsive two-column ergonomic layout:
+   - **Left Panel:** Dish Catalog with search bar, quick category pills (`All`, `Beverages`, `Starters`, `Main Course`, `Breads & Rice`, `Desserts`), and dish cards with price and "in cart" badges.
+   - **Right Panel:** Live Cart Ticket with table selector pills (`T1`, `T2`, `T3`, `Parcel`), customer name, item steppers (`[-]` `[qty]` `[+]`), line totals, estimated 5% GST, and grand total.
 
-### Step 2: Add Menu Items
-1. Browse dishes from the catalog on the left, or use the **Search** bar or **Category** filter.
-2. Click **"➕ Add"** on any dish to add it to the active order cart on the right.
-3. In the cart, use the **`+`** and **`-`** buttons to adjust quantities. The item line totals and order subtotal update in real time.
+### Step 2: Add Menu Items & Adjust Quantities
+1. Filter dishes using the category pill bar or type in the real-time search box.
+2. Click **"➕ Add"** on any dish to add it to the active order ticket.
+3. In the cart panel:
+   - Use the **`+`** and **`-`** buttons to adjust quantities.
+   - Click the red **`✕`** icon to delete a single item, or click **"Clear Cart"** to reset the ticket.
+   - The ticket subtotal, estimated GST, and grand total update automatically in real time.
 
-### Step 3: Settle the Bill
-1. Click **"Proceed to Bill 💳"**.
-2. The **Bill Settlement Dialog** appears:
-   - Review line items and subtotal.
-   - Enter an optional **Discount Percentage (%)** (e.g. `5` or `10`).
-   - Confirm the **GST Tax Rate (%)** (default `5.0%`).
-   - Select the **Payment Method:** `CASH`, `CARD`, or `UPI`.
-   - The dialog immediately recalculates the discount amount, tax amount, and net payable total using exact Decimal arithmetic.
-3. Click **"Finalize & Issue Receipt 🧾"**.
-4. The transaction commits atomically to the SQLite database, and the order status is set to `COMPLETED`.
+### Step 3: Settle the Bill & Process Payment
+1. Click **"Proceed to Payment 💳"** (or click **"Save Pending ⏳"** to hold the ticket).
+2. The **POS Settlement Modal** opens with guaranteed bottom action bar visibility (pinned bottom controls):
+   - **Order Summary:** Line items review with exact unit prices and quantities.
+   - **Financial Calculations:** Live Discount % and GST % inputs with immediate Decimal recalculation.
+   - **Payment Method Selector:** Choose between `CASH`, `CARD`, or `UPI`:
+     - **💵 CASH Payment:** Enter tendered cash amount (or click quick tender buttons: `Exact`, `+₹100`, `+₹500`, `+₹1000`). The system computes and displays **Change to Return** in emerald green or flags insufficient cash in real time.
+     - **💳 DEMO CARD Payment:** Features a prominent academic test notice banner. Enter cardholder name, 16-digit card number, expiry (MM/YY), and CVV, or click **"✨ Fill Demo Card"** for instant 1-click test details. (No real banking data is transmitted or stored).
+     - **📱 DEMO UPI Payment:** Enter a simulated UPI ID (e.g. `guest@upi` or click **"✨ Demo ID"** to auto-fill). Displays simulated QR code scanner instructions for Google Pay, PhonePe, Paytm, and BHIM UPI.
+   - **Safety & Cancellation:** Click **"✕ Cancel Payment (Esc)"** at any time to close the modal safely without billing. The order ticket remains in `PENDING` status.
+3. Click **"Confirm Payment & Settle Bill 💳"**:
+   - The button automatically disables during commit to prevent double-clicks or duplicate billing.
+   - Atomically records the bill, transitions order status to `COMPLETED`, and immediately opens the itemized tax receipt.
 
 ### Step 4: Print & Reprint Receipts
 1. The **Receipt Preview Dialog** displays a professional, itemized monospace receipt containing:
    - Restaurant banner, BBAT104 project details, and student registration number.
    - Unique Bill Number (`BILL-YYYYMMDD-XXXX`) and Order Number (`ORD-YYYYMMDD-XXXX`).
-   - Date, time, table, and customer.
-   - Line items with quantities, unit prices, and amounts.
-   - Subtotal, Discount, GST tax, and Net Payable Total.
-   - Payment method and status.
-2. Click **"📋 Copy to Clipboard"** to copy the text for thermal printers or press **`Esc`** to close.
+   - Date, time, table, customer, line items, Subtotal, Discount, GST tax, and Net Payable Total.
+   - Payment method and settlement status.
+2. Click **"📋 Copy Receipt"** to copy the text for thermal receipt printers, or press **`Esc`** to close.
 3. To reprint any past bill, navigate to **"📜 Orders History"** (`Alt+O`), locate the order, and click **"View Receipt 🧾"**.
+
