@@ -5,6 +5,7 @@ from typing import Optional, Callable
 from services.menu_service import MenuService, menu_service
 from ui.theme_manager import theme_manager
 from config.settings import DEFAULT_CATEGORIES, CURRENCY_SYMBOL
+from utils.window_utils import center_dialog
 
 
 class MenuDialog(ctk.CTkToplevel):
@@ -16,8 +17,8 @@ class MenuDialog(ctk.CTkToplevel):
         self.item = item
 
         self.title("Edit Menu Item" if item else "Add New Menu Item")
-        self.geometry("450x420")
         self.resizable(False, False)
+        center_dialog(self, master, target_width=450, target_height=420)
         self.grab_set()
 
         self._build_ui()
@@ -38,14 +39,14 @@ class MenuDialog(ctk.CTkToplevel):
         form.pack(fill="both", expand=True, padx=25, pady=(0, 15))
 
         # Item Name
-        ctk.CTkLabel(form, text="Item Name *", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_primary"]).pack(anchor="w", padx=20, pady=(15, 2))
+        ctk.CTkLabel(form, text="Item Name *", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(anchor="w", padx=20, pady=(15, 2))
         self.entry_name = ctk.CTkEntry(form, height=34, font=ctk.CTkFont(size=13))
         self.entry_name.pack(fill="x", padx=20, pady=(0, 10))
         if self.item:
             self.entry_name.insert(0, self.item.name)
 
         # Category
-        ctk.CTkLabel(form, text="Category *", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_primary"]).pack(anchor="w", padx=20, pady=(0, 2))
+        ctk.CTkLabel(form, text="Category *", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(anchor="w", padx=20, pady=(0, 2))
         self.combo_cat = ctk.CTkComboBox(form, values=DEFAULT_CATEGORIES, height=34)
         self.combo_cat.pack(fill="x", padx=20, pady=(0, 10))
         if self.item:
@@ -54,14 +55,14 @@ class MenuDialog(ctk.CTkToplevel):
             self.combo_cat.set(DEFAULT_CATEGORIES[0])
 
         # Price
-        ctk.CTkLabel(form, text=f"Price ({CURRENCY_SYMBOL}) *", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_primary"]).pack(anchor="w", padx=20, pady=(0, 2))
+        ctk.CTkLabel(form, text=f"Price ({CURRENCY_SYMBOL}) *", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(anchor="w", padx=20, pady=(0, 2))
         self.entry_price = ctk.CTkEntry(form, height=34, font=ctk.CTkFont(size=13))
         self.entry_price.pack(fill="x", padx=20, pady=(0, 10))
         if self.item:
             self.entry_price.insert(0, str(self.item.price))
 
         # Availability Switch
-        self.switch_avail = ctk.CTkSwitch(form, text="Available for Order", font=ctk.CTkFont(size=12))
+        self.switch_avail = ctk.CTkSwitch(form, text="Available for Order", font=ctk.CTkFont(size=12), text_color=palette.get("form_label", "#334155"))
         self.switch_avail.pack(anchor="w", padx=20, pady=(0, 10))
         if self.item and not self.item.is_available:
             self.switch_avail.deselect()
@@ -118,8 +119,8 @@ class ConfirmDeleteDialog(ctk.CTkToplevel):
     def __init__(self, master, item_name: str, on_confirm_cb: Callable[[], None], **kwargs):
         super().__init__(master, **kwargs)
         self.title("Confirm Deletion")
-        self.geometry("380x180")
         self.resizable(False, False)
+        center_dialog(self, master, target_width=380, target_height=180)
         self.grab_set()
 
         palette = theme_manager.get_palette()
@@ -226,18 +227,18 @@ class MenuFrame(ctk.CTkFrame):
         toolbar = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
         toolbar.pack(fill="x", padx=25, pady=(0, 15))
 
-        ctk.CTkLabel(toolbar, text="Search:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).pack(side="left", padx=(15, 6), pady=10)
+        ctk.CTkLabel(toolbar, text="Search:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left", padx=(15, 6), pady=10)
         self.entry_search = ctk.CTkEntry(toolbar, width=220, placeholder_text="Search dish by name...", height=32)
         self.entry_search.pack(side="left", padx=(0, 15), pady=10)
         self.entry_search.bind("<KeyRelease>", lambda e: self.refresh_items())
 
-        ctk.CTkLabel(toolbar, text="Category:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).pack(side="left", padx=(0, 6), pady=10)
+        ctk.CTkLabel(toolbar, text="Category:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left", padx=(0, 6), pady=10)
         self.combo_filter_cat = ctk.CTkComboBox(toolbar, values=["All"] + DEFAULT_CATEGORIES, height=32, command=lambda v: self.refresh_items())
         self.combo_filter_cat.set("All")
         self.combo_filter_cat.pack(side="left", padx=(0, 15), pady=10)
 
         # Status filter switch
-        self.switch_available_only = ctk.CTkCheckBox(toolbar, text="Available Only", command=self.refresh_items)
+        self.switch_available_only = ctk.CTkCheckBox(toolbar, text="Available Only", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155"), command=self.refresh_items)
         self.switch_available_only.pack(side="left", padx=(0, 15), pady=10)
 
         refresh_btn = ctk.CTkButton(

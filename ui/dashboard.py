@@ -185,7 +185,7 @@ class DashboardFrame(ctk.CTkFrame):
             card,
             text=title,
             font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=palette["text_secondary"]
+            text_color=palette.get("section_heading", palette["text_primary"])
         ).pack(anchor="w", padx=16, pady=(14, 2))
 
         val_lbl = ctk.CTkLabel(

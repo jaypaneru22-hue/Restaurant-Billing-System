@@ -60,10 +60,13 @@ THEME_PALETTES = {
         "bg_card_subtle": "#F1F5F9",
 
         # Typography (High Contrast Navy & Slate)
-        "heading": "#173B70",
-        "text_primary": "#1E293B",
-        "text_secondary": "#64748B",
-        "text_muted": "#94A3B8",
+        "heading": "#173B70",            # Main page headings: dark navy
+        "section_heading": "#1E293B",    # Section headings: dark readable slate
+        "form_label": "#334155",         # Form labels: readable dark grey
+        "body": "#334155",               # Body text: dark slate
+        "text_primary": "#1E293B",       # Main text: dark slate
+        "text_secondary": "#64748B",     # Secondary text: muted slate
+        "text_muted": "#94A3B8",         # Subtle hints & placeholders
 
         # Brand Accents & Interactive Elements
         "accent": "#2563EB",
@@ -100,10 +103,13 @@ THEME_PALETTES = {
         "bg_card": "#1E293B",
         "bg_card_subtle": "#253347",
 
-        # Typography
-        "heading": "#F8FAFC",
-        "text_primary": "#F8FAFC",
-        "text_secondary": "#94A3B8",
+        # Typography (High Contrast for Dark Mode)
+        "heading": "#F8FAFC",            # Main page headings: crisp white/slate
+        "section_heading": "#F1F5F9",    # Section headings: light slate
+        "form_label": "#E2E8F0",         # Form labels: light grey
+        "body": "#E2E8F0",               # Body text: light grey
+        "text_primary": "#F8FAFC",       # Main text
+        "text_secondary": "#94A3B8",     # Secondary text
         "text_muted": "#64748B",
 
         # Brand Accents & Interactive Elements

@@ -19,6 +19,7 @@ __pycache__/
 data/*.db
 tests/*.db
 data/backups/
+data/receipts/
 
 # Logs
 logs/*.log

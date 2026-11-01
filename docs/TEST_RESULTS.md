@@ -7,23 +7,23 @@
 - **Assigned Quality Goal:** Q08 — Improve User Satisfaction
 - **Test Date:** 2026-11-01
 - **Environment:** Windows 11, Python 3.12.10, pytest 9.1.1
-- **Overall Status:** **PASSED (100% Pass Rate — 83/83 Tests)**
+- **Overall Status:** **PASSED (100% Pass Rate — 89/89 Tests)**
 
 ---
 
 ## 1. Executive Summary
 
-A comprehensive automated test suite consisting of **83 distinct unit and integration test cases** was executed against an isolated, temporary SQLite test database, alongside an automated full GUI lifecycle smoke test covering all CustomTkinter POS frames, simulated payment dialogs, and Matplotlib embedded charts.
+A comprehensive automated test suite consisting of **89 distinct unit and integration test cases** was executed against an isolated, temporary SQLite test database, alongside an automated full GUI lifecycle smoke test covering all CustomTkinter POS frames, simulated payment dialogs, receipt printing dispatch, dynamic monitor window centering, and Matplotlib embedded charts.
 
 | Metric | Result |
 |--------|--------|
-| **Total Test Cases** | **83** |
-| **Passed** | **83** |
+| **Total Test Cases** | **89** |
+| **Passed** | **89** |
 | **Failed** | **0** |
 | **Skipped** | **0** |
 | **Pass Rate** | **100.0%** |
-| **Total Duration** | **39.35 seconds** |
-| **GUI Smoke Test** | **100% Passed (Zero Exceptions across all 8 stages including 7 navigation views)** |
+| **Total Duration** | **45.94 seconds** |
+| **GUI Smoke Test** | **100% Passed (Zero Exceptions across all 8 stages including 7 navigation views and receipt printing)** |
 
 ---
 
@@ -118,13 +118,15 @@ tests/test_validators.py::test_validate_order_status PASSED              [100%]
 3. **Database & Persistence:** 7/7 passed (foreign key enforcement, transaction rollback on failure, idempotent migrations).
 4. **Menu Catalog Management:** 6/6 passed (CRUD operations, duplicate prevention, category filtering, search).
 5. **Order Lifecycle & Cart:** 5/5 passed (multi-item order creation, line totals, cancellation, PENDING modifications).
-6. **Billing & Receipts:** 4/4 passed (exact Decimal calculations, receipt text formatting, historical price protection).
-7. **Q08-F1 Interactive Dashboard:** 2/2 passed (empty database zero-division protection, real-time KPI metrics).
-8. **Q08-F2 Visual Reports:** 3/3 passed (Matplotlib figure generation in dark/light themes, order/payment distributions).
-9. **Q08-F3 Theme Toggle:** 4/4 passed (appearance switching, listener callback dispatch, database persistence).
-10. **Q08-F5 User Profile Settings:** 6/6 passed (profile viewer, display name updater, secure password change, preferences persistence).
-11. **Logging & Domain Models:** 5/5 passed (credential redaction, domain dataclass helpers).
-12. **Database Administration & Demo Governance:** 3/3 passed (backup snapshot creation, safe demo data cleanup with master seed protection, admin credential recovery).
-13. **POS Payment Workflow & Simulation (DEF-013 / PDCA-07):** 16/16 passed (Cash exact/excess/insufficient change calculation, Demo Card length/name/expiry/CVV validation, Demo UPI VPA validation, order cancellation leaving order PENDING, duplicate payment prevention, payment finalization).
+6. **Billing & Receipts:** 7/7 passed (exact Decimal calculations, receipt text formatting, historical price protection, receipt printing dispatch, graceful printer-unavailable fallback, empty content validation).
+7. **Window Geometry & Centering:** 4/4 passed (monitor resolution clamping, small screen adaptation, parent-relative dialog centering, standalone fallback).
+8. **Q08-F1 Interactive Dashboard:** 2/2 passed (empty database zero-division protection, real-time KPI metrics).
+9. **Q08-F2 Visual Reports:** 3/3 passed (Matplotlib figure generation in dark/light themes, order/payment distributions).
+10. **Q08-F3 Theme Toggle:** 4/4 passed (appearance switching, listener callback dispatch, database persistence).
+11. **Q08-F4 Keyboard Shortcuts:** 3/3 passed (Alt/Ctrl accelerator bindings, help legend dialog, case-insensitive mapping).
+12. **Q08-F5 User Profile Settings:** 6/6 passed (profile viewer, display name updater, secure password change, preferences persistence).
+13. **Logging & Domain Models:** 5/5 passed (credential redaction, domain dataclass helpers).
+14. **Database Administration & Demo Governance:** 3/3 passed (backup snapshot creation, safe demo data cleanup with master seed protection, admin credential recovery).
+15. **POS Payment Workflow & Simulation (DEF-013 / PDCA-07):** 16/16 passed (Cash exact/excess/insufficient change calculation, Demo Card length/name/expiry/CVV validation, Demo UPI VPA validation, order cancellation leaving order PENDING, duplicate payment prevention, payment finalization).
 
 

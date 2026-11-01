@@ -97,14 +97,16 @@ def seed_demo_transactions() -> None:
     logger.info("Demonstration transactions successfully seeded.")
 
 
+from utils.window_utils import center_window
+
+
 class RestaurantBillingApp(ctk.CTk):
     """Main application GUI coordinator managing authentication and workspace views."""
 
     def __init__(self):
         super().__init__()
         self.title(f"{APP_NAME} — {STUDENT_NAME} ({REGISTRATION_NUMBER}) — {QUALITY_GOAL}")
-        self.geometry("1240x750")
-        self.minsize(1024, 640)
+        center_window(self, target_width=1240, target_height=750, min_width=1024, min_height=640)
 
         # Apply default theme
         theme_manager.apply_theme(DEFAULT_THEME)

@@ -93,11 +93,12 @@ TQM/
 │   ├── reports.py
 │   └── profile.py
 │
-├── utils/                      # Input validators, PBKDF2 hashing, rotating logger
+├── utils/                      # Input validators, PBKDF2 hashing, rotating logger, window geometry
 │   ├── __init__.py
 │   ├── validators.py
 │   ├── security.py
-│   └── logger.py
+│   ├── logger.py
+│   └── window_utils.py         # Dynamic monitor centering & small-screen clamping
 │
 ├── scripts/                     # Placement administration & database governance suite
 │   └── manage_db.py            # Status, backup, clean-demo, seed-demo, recover-admin
@@ -109,11 +110,11 @@ TQM/
 │   ├── pdca_log.csv
 │   └── generate_charts.py
 │
-├── tests/                      # Automated pytest unit & integration test suite (83 tests)
+├── tests/                      # Automated pytest unit & integration test suite (89 tests)
 │   ├── __init__.py
 │   ├── conftest.py             # Shared pytest fixtures & temporary database factory
 │   ├── test_auth_service.py
-│   ├── test_billing_service.py
+│   ├── test_billing_service.py # Bill breakdown, receipt printing & fallback tests
 │   ├── test_dashboard_service.py
 │   ├── test_database.py
 │   ├── test_database_manager.py
@@ -128,7 +129,8 @@ TQM/
 │   ├── test_security.py
 │   ├── test_shortcuts.py       # Keyboard accelerators & input guard tests
 │   ├── test_theme_manager.py
-│   └── test_validators.py
+│   ├── test_validators.py
+│   └── test_window_utils.py    # Monitor centering & dialog offset tests
 │
 ├── docs/                       # Comprehensive technical and TQM documentation
 │   ├── SRS.md                  # Software Requirements Specification
@@ -228,7 +230,7 @@ The project includes an administration CLI utility [`scripts/manage_db.py`](scri
 
 ## 🧪 Automated Testing Suite
 
-The project includes **63 automated unit and integration tests** (100% pass rate) with zero external network dependencies:
+The project includes **89 automated unit and integration tests** (100% pass rate) with zero external network dependencies:
 
 ```powershell
 # Run the complete test suite

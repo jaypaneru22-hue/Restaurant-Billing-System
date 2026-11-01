@@ -170,7 +170,7 @@ class NewOrderFrame(ctk.CTkFrame):
         # Row 1: Table Number
         t_row = ctk.CTkFrame(meta_box, fg_color="transparent")
         t_row.pack(fill="x", padx=10, pady=(8, 4))
-        ctk.CTkLabel(t_row, text="Table No:", width=70, anchor="w", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(side="left")
+        ctk.CTkLabel(t_row, text="Table No:", width=70, anchor="w", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left")
         self.entry_table = ctk.CTkEntry(t_row, height=28, width=110, font=ctk.CTkFont(size=12))
         self.entry_table.pack(side="left", padx=4)
         self.entry_table.insert(0, "Table 1")
@@ -192,7 +192,7 @@ class NewOrderFrame(ctk.CTkFrame):
         # Row 2: Customer Name
         c_row = ctk.CTkFrame(meta_box, fg_color="transparent")
         c_row.pack(fill="x", padx=10, pady=(2, 8))
-        ctk.CTkLabel(c_row, text="Customer:", width=70, anchor="w", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(side="left")
+        ctk.CTkLabel(c_row, text="Customer:", width=70, anchor="w", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left")
         self.entry_customer = ctk.CTkEntry(c_row, height=28, font=ctk.CTkFont(size=12))
         self.entry_customer.pack(side="left", fill="x", expand=True, padx=4)
         self.entry_customer.insert(0, "Walk-in Guest")
@@ -211,14 +211,14 @@ class NewOrderFrame(ctk.CTkFrame):
 
         sub_row = ctk.CTkFrame(calc_inner, fg_color="transparent")
         sub_row.pack(fill="x", pady=1)
-        ctk.CTkLabel(sub_row, text="Items Subtotal:", font=ctk.CTkFont(size=11), text_color=palette["text_secondary"]).pack(side="left")
+        ctk.CTkLabel(sub_row, text="Items Subtotal:", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left")
         self.lbl_subtotal = ctk.CTkLabel(sub_row, text=f"{CURRENCY_SYMBOL}0.00", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_primary"])
         self.lbl_subtotal.pack(side="right")
 
         tax_row = ctk.CTkFrame(calc_inner, fg_color="transparent")
         tax_row.pack(fill="x", pady=1)
-        ctk.CTkLabel(tax_row, text="Estimated GST (5%):", font=ctk.CTkFont(size=11), text_color=palette["text_secondary"]).pack(side="left")
-        self.lbl_est_tax = ctk.CTkLabel(tax_row, text=f"{CURRENCY_SYMBOL}0.00", font=ctk.CTkFont(size=12), text_color=palette["text_secondary"])
+        ctk.CTkLabel(tax_row, text="Estimated GST (5%):", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left")
+        self.lbl_est_tax = ctk.CTkLabel(tax_row, text=f"{CURRENCY_SYMBOL}0.00", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_primary"])
         self.lbl_est_tax.pack(side="right")
 
         tot_row = ctk.CTkFrame(calc_inner, fg_color="transparent")

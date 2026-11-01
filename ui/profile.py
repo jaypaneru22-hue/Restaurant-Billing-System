@@ -85,29 +85,29 @@ class ProfileFrame(ctk.CTkFrame):
             self.card_info,
             text="Account Information",
             font=ctk.CTkFont(size=16, weight="bold"),
-            text_color=palette.get("heading", palette["text_primary"])
+            text_color=palette.get("section_heading", palette["text_primary"])
         ).pack(anchor="w", padx=20, pady=(15, 10))
 
         grid_frame = ctk.CTkFrame(self.card_info, fg_color="transparent")
         grid_frame.pack(fill="x", padx=20, pady=(0, 15))
 
         # Username
-        ctk.CTkLabel(grid_frame, text="Username:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).grid(row=0, column=0, sticky="w", pady=6)
+        ctk.CTkLabel(grid_frame, text="Username:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).grid(row=0, column=0, sticky="w", pady=6)
         self.lbl_username = ctk.CTkLabel(grid_frame, text="-", font=ctk.CTkFont(size=13, weight="bold"), text_color=palette["text_primary"])
         self.lbl_username.grid(row=0, column=1, sticky="w", padx=15, pady=6)
 
         # Role
-        ctk.CTkLabel(grid_frame, text="Role:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).grid(row=1, column=0, sticky="w", pady=6)
+        ctk.CTkLabel(grid_frame, text="Role:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).grid(row=1, column=0, sticky="w", pady=6)
         self.lbl_role = ctk.CTkLabel(grid_frame, text="-", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["accent"])
         self.lbl_role.grid(row=1, column=1, sticky="w", padx=15, pady=6)
 
         # Member Since
-        ctk.CTkLabel(grid_frame, text="Member Since:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).grid(row=2, column=0, sticky="w", pady=6)
-        self.lbl_created = ctk.CTkLabel(grid_frame, text="-", font=ctk.CTkFont(size=12), text_color=palette["text_secondary"])
+        ctk.CTkLabel(grid_frame, text="Member Since:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).grid(row=2, column=0, sticky="w", pady=6)
+        self.lbl_created = ctk.CTkLabel(grid_frame, text="-", font=ctk.CTkFont(size=12), text_color=palette.get("text_secondary", "#64748B"))
         self.lbl_created.grid(row=2, column=1, sticky="w", padx=15, pady=6)
 
         # Full Name Input
-        ctk.CTkLabel(grid_frame, text="Full Name:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).grid(row=3, column=0, sticky="w", pady=6)
+        ctk.CTkLabel(grid_frame, text="Full Name:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).grid(row=3, column=0, sticky="w", pady=6)
         self.entry_name = ctk.CTkEntry(grid_frame, width=300, height=36, font=ctk.CTkFont(size=13))
         self.entry_name.grid(row=3, column=1, sticky="w", padx=15, pady=6)
 
@@ -136,17 +136,17 @@ class ProfileFrame(ctk.CTkFrame):
             self.card_pref,
             text="Workspace & Theme Preferences",
             font=ctk.CTkFont(size=16, weight="bold"),
-            text_color=palette.get("heading", palette["text_primary"])
+            text_color=palette.get("section_heading", palette["text_primary"])
         ).pack(anchor="w", padx=20, pady=(15, 10))
 
         pref_grid = ctk.CTkFrame(self.card_pref, fg_color="transparent")
         pref_grid.pack(fill="x", padx=20, pady=(0, 15))
 
-        ctk.CTkLabel(pref_grid, text="Theme Mode:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).grid(row=0, column=0, sticky="w", pady=6)
+        ctk.CTkLabel(pref_grid, text="Theme Mode:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).grid(row=0, column=0, sticky="w", pady=6)
         self.seg_theme = ctk.CTkSegmentedButton(pref_grid, values=["light", "dark"], width=200, height=32)
         self.seg_theme.grid(row=0, column=1, sticky="w", padx=15, pady=6)
 
-        ctk.CTkLabel(pref_grid, text="Default Tax Rate (%):", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).grid(row=1, column=0, sticky="w", pady=6)
+        ctk.CTkLabel(pref_grid, text="Default Tax Rate (%):", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).grid(row=1, column=0, sticky="w", pady=6)
         self.entry_tax = ctk.CTkEntry(pref_grid, width=200, height=36, font=ctk.CTkFont(size=13))
         self.entry_tax.grid(row=1, column=1, sticky="w", padx=15, pady=6)
 
@@ -172,21 +172,21 @@ class ProfileFrame(ctk.CTkFrame):
             self.card_sec,
             text="Security & Password Change",
             font=ctk.CTkFont(size=16, weight="bold"),
-            text_color=palette.get("heading", palette["text_primary"])
+            text_color=palette.get("section_heading", palette["text_primary"])
         ).pack(anchor="w", padx=20, pady=(15, 10))
 
         sec_grid = ctk.CTkFrame(self.card_sec, fg_color="transparent")
         sec_grid.pack(fill="x", padx=20, pady=(0, 15))
 
-        ctk.CTkLabel(sec_grid, text="Current Password:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).grid(row=0, column=0, sticky="w", pady=6)
+        ctk.CTkLabel(sec_grid, text="Current Password:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).grid(row=0, column=0, sticky="w", pady=6)
         self.entry_curr_pass = ctk.CTkEntry(sec_grid, width=300, height=36, show="•")
         self.entry_curr_pass.grid(row=0, column=1, sticky="w", padx=15, pady=6)
 
-        ctk.CTkLabel(sec_grid, text="New Password:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).grid(row=1, column=0, sticky="w", pady=6)
+        ctk.CTkLabel(sec_grid, text="New Password:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).grid(row=1, column=0, sticky="w", pady=6)
         self.entry_new_pass = ctk.CTkEntry(sec_grid, width=300, height=36, show="•")
         self.entry_new_pass.grid(row=1, column=1, sticky="w", padx=15, pady=6)
 
-        ctk.CTkLabel(sec_grid, text="Confirm Password:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).grid(row=2, column=0, sticky="w", pady=6)
+        ctk.CTkLabel(sec_grid, text="Confirm Password:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).grid(row=2, column=0, sticky="w", pady=6)
         self.entry_conf_pass = ctk.CTkEntry(sec_grid, width=300, height=36, show="•")
         self.entry_conf_pass.grid(row=2, column=1, sticky="w", padx=15, pady=6)
 

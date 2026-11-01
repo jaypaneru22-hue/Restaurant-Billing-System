@@ -7,22 +7,36 @@ from services.order_service import OrderService, order_service
 from ui.theme_manager import theme_manager
 from config.settings import DEFAULT_TAX_RATE, CURRENCY_SYMBOL, SUPPORTED_PAYMENT_METHODS
 from utils.validators import validate_cash_tendered, validate_demo_card, validate_demo_upi
+from utils.window_utils import center_dialog
 
 
 class ReceiptDialog(ctk.CTkToplevel):
-    """Itemized printable receipt viewer with thermal receipt formatting and export support."""
+    """Itemized printable receipt viewer with thermal receipt formatting and print/export support."""
 
-    def __init__(self, master, receipt_text: str, **kwargs):
+    def __init__(self, master, receipt_text: str, bill_number: Optional[str] = None, **kwargs):
         super().__init__(master, **kwargs)
         self.receipt_text = receipt_text
+        self.bill_number = bill_number
+        self.master_ref = master
+        self._last_saved_path = None
+        self.billing_svc = billing_service
 
         self.title("Customer Invoice & Receipt")
-        self.geometry("520x620")
-        self.minsize(460, 500)
         self.resizable(True, True)
+        center_dialog(self, master, target_width=520, target_height=640, min_width=460, min_height=500)
         self.grab_set()
 
         self._build_ui()
+
+    def _extract_bill_number(self) -> str:
+        if self.bill_number:
+            return self.bill_number
+        for line in self.receipt_text.splitlines():
+            if "Bill No:" in line:
+                return line.split("Bill No:")[1].strip()
+            if "Order No:" in line:
+                return line.split("Order No:")[1].strip()
+        return "RECEIPT"
 
     def _build_ui(self):
         palette = theme_manager.get_palette()
@@ -32,32 +46,54 @@ class ReceiptDialog(ctk.CTkToplevel):
         btn_box = ctk.CTkFrame(self, fg_color="transparent")
         btn_box.pack(side="bottom", fill="x", padx=20, pady=(10, 16))
 
-        btn_copy = ctk.CTkButton(
+        # Print Receipt Button
+        self.btn_print = ctk.CTkButton(
             btn_box,
-            text="📋 Copy Receipt",
-            height=36,
-            font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color=palette["bg_card"],
-            hover_color=palette["bg_secondary"],
-            text_color=palette["text_primary"],
-            command=self._copy_to_clipboard
-        )
-        btn_copy.pack(side="left")
-
-        self.lbl_copied = ctk.CTkLabel(btn_box, text="", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["success"])
-        self.lbl_copied.pack(side="left", padx=10)
-
-        btn_close = ctk.CTkButton(
-            btn_box,
-            text="Close (Esc)",
-            width=110,
+            text="🖨️ Print Receipt",
             height=36,
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color=palette["accent"],
             hover_color=palette["accent_hover"],
+            text_color="#FFFFFF",
+            command=self._handle_print_receipt
+        )
+        self.btn_print.pack(side="left")
+
+        # Open Saved Receipt Button (displayed if saved to disk)
+        self.btn_open_file = ctk.CTkButton(
+            btn_box,
+            text="📂 Open File",
+            height=36,
+            width=90,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["bg_card"],
+            hover_color=palette["border"],
+            text_color=palette["text_primary"],
+            command=self._open_saved_receipt_file
+        )
+
+        self.lbl_print_status = ctk.CTkLabel(
+            btn_box,
+            text="",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=palette["success"],
+            wraplength=230,
+            justify="left"
+        )
+        self.lbl_print_status.pack(side="left", padx=10)
+
+        self.btn_close = ctk.CTkButton(
+            btn_box,
+            text="Close (Esc)",
+            width=100,
+            height=36,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=palette["bg_card"],
+            hover_color=palette["border"],
+            text_color=palette["text_primary"],
             command=self.destroy
         )
-        btn_close.pack(side="right")
+        self.btn_close.pack(side="right")
 
         # 2. Header
         header = ctk.CTkFrame(self, fg_color="transparent")
@@ -67,7 +103,7 @@ class ReceiptDialog(ctk.CTkToplevel):
             header,
             text="🧾 Final Receipt & Tax Invoice",
             font=ctk.CTkFont(size=18, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("heading", "#173B70")
         ).pack(side="left")
 
         # 3. Monospace textbox for receipt
@@ -86,10 +122,38 @@ class ReceiptDialog(ctk.CTkToplevel):
 
         self.bind("<Escape>", lambda e: self.destroy())
 
-    def _copy_to_clipboard(self):
-        self.clipboard_clear()
-        self.clipboard_append(self.receipt_text)
-        self.lbl_copied.configure(text="✓ Copied to clipboard!")
+    def _handle_print_receipt(self):
+        palette = theme_manager.get_palette()
+        bill_num = self._extract_bill_number()
+        ok, msg, file_path = self.billing_svc.print_receipt(self.receipt_text, bill_num)
+        self._last_saved_path = file_path
+        if ok:
+            self.lbl_print_status.configure(
+                text="✓ Sent to printer",
+                text_color=palette["success"]
+            )
+            if file_path and file_path.exists():
+                self.btn_open_file.pack(side="left", padx=4)
+        else:
+            self.lbl_print_status.configure(
+                text="⚠️ Printer unavailable (File saved)",
+                text_color=palette["warning"]
+            )
+            if file_path and file_path.exists():
+                self.btn_open_file.pack(side="left", padx=4)
+
+    def _open_saved_receipt_file(self):
+        if self._last_saved_path and self._last_saved_path.exists():
+            import sys
+            import os
+            try:
+                if sys.platform == "win32":
+                    os.startfile(str(self._last_saved_path))
+                else:
+                    import subprocess
+                    subprocess.run(["xdg-open", str(self._last_saved_path)], check=False)
+            except Exception as e:
+                self.lbl_print_status.configure(text=f"Error: {e}")
 
 
 class BillingDialog(ctk.CTkToplevel):
@@ -116,10 +180,8 @@ class BillingDialog(ctk.CTkToplevel):
             return
 
         self.title(f"POS Settlement — {self.order.order_number}")
-        # Sized to fit comfortably on 1366x768 screens and higher
-        self.geometry("580x640")
-        self.minsize(520, 520)
         self.resizable(True, True)
+        center_dialog(self, master, target_width=580, target_height=660, min_width=520, min_height=520)
         self.grab_set()
 
         self._current_breakdown = {}
@@ -243,7 +305,7 @@ class BillingDialog(ctk.CTkToplevel):
             card_calc,
             text="2. Financial Calculation & Taxes",
             font=ctk.CTkFont(size=13, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("section_heading", palette["text_primary"])
         ).pack(anchor="w", padx=15, pady=(10, 6))
 
         inputs_grid = ctk.CTkFrame(card_calc, fg_color="transparent")
@@ -253,7 +315,7 @@ class BillingDialog(ctk.CTkToplevel):
         # Discount input
         d_box = ctk.CTkFrame(inputs_grid, fg_color="transparent")
         d_box.grid(row=0, column=0, sticky="w", padx=(0, 10))
-        ctk.CTkLabel(d_box, text="Discount Percentage (%):", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(anchor="w")
+        ctk.CTkLabel(d_box, text="Discount Percentage (%):", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(anchor="w")
         self.entry_discount = ctk.CTkEntry(d_box, width=120, height=30)
         self.entry_discount.insert(0, "0")
         self.entry_discount.pack(anchor="w", pady=(2, 0))
@@ -262,7 +324,7 @@ class BillingDialog(ctk.CTkToplevel):
         # Tax input
         t_box = ctk.CTkFrame(inputs_grid, fg_color="transparent")
         t_box.grid(row=0, column=1, sticky="w")
-        ctk.CTkLabel(t_box, text="GST Tax Rate (%):", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(anchor="w")
+        ctk.CTkLabel(t_box, text="GST Tax Rate (%):", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(anchor="w")
         self.entry_tax = ctk.CTkEntry(t_box, width=120, height=30)
         self.entry_tax.insert(0, str(DEFAULT_TAX_RATE))
         self.entry_tax.pack(anchor="w", pady=(2, 0))
@@ -272,10 +334,10 @@ class BillingDialog(ctk.CTkToplevel):
         sum_box = ctk.CTkFrame(card_calc, fg_color=palette["bg_secondary"], corner_radius=8)
         sum_box.pack(fill="x", padx=15, pady=(4, 12))
 
-        self.lbl_subtotal = ctk.CTkLabel(sum_box, text="Subtotal: ₹0.00", font=ctk.CTkFont(size=12), text_color=palette["text_secondary"])
+        self.lbl_subtotal = ctk.CTkLabel(sum_box, text="Subtotal: ₹0.00", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("body", "#334155"))
         self.lbl_subtotal.pack(anchor="w", padx=12, pady=(6, 1))
 
-        self.lbl_tax_amt = ctk.CTkLabel(sum_box, text="GST (5%): +₹0.00", font=ctk.CTkFont(size=12), text_color=palette["text_secondary"])
+        self.lbl_tax_amt = ctk.CTkLabel(sum_box, text="GST (5%): +₹0.00", font=ctk.CTkFont(size=12), text_color=palette.get("body", "#334155"))
         self.lbl_tax_amt.pack(anchor="w", padx=12, pady=1)
 
         self.lbl_final_total = ctk.CTkLabel(sum_box, text="Net Payable Total: ₹0.00", font=ctk.CTkFont(size=17, weight="bold"), text_color=palette["success"])
@@ -289,7 +351,7 @@ class BillingDialog(ctk.CTkToplevel):
             card_pay,
             text="3. Payment Method",
             font=ctk.CTkFont(size=13, weight="bold"),
-            text_color=palette["text_primary"]
+            text_color=palette.get("section_heading", palette["text_primary"])
         ).pack(anchor="w", padx=15, pady=(10, 6))
 
         # Segmented payment selector
@@ -329,12 +391,12 @@ class BillingDialog(ctk.CTkToplevel):
         box = ctk.CTkFrame(self.details_frame, fg_color=palette["bg_secondary"], corner_radius=8)
         box.pack(fill="x", pady=2)
 
-        ctk.CTkLabel(box, text="💵 Cash Settlement Details", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_primary"]).pack(anchor="w", padx=12, pady=(10, 4))
+        ctk.CTkLabel(box, text="💵 Cash Settlement Details", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("section_heading", palette["text_primary"])).pack(anchor="w", padx=12, pady=(10, 4))
 
         input_row = ctk.CTkFrame(box, fg_color="transparent")
         input_row.pack(fill="x", padx=12, pady=(0, 6))
 
-        ctk.CTkLabel(input_row, text="Tendered Cash Amount (₹):", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(side="left")
+        ctk.CTkLabel(input_row, text="Tendered Cash Amount (₹):", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left")
         self.entry_cash_tendered = ctk.CTkEntry(input_row, width=130, height=30, font=ctk.CTkFont(size=12, weight="bold"))
         self.entry_cash_tendered.pack(side="left", padx=10)
 
@@ -346,7 +408,7 @@ class BillingDialog(ctk.CTkToplevel):
         # Quick tender helper buttons
         quick_row = ctk.CTkFrame(box, fg_color="transparent")
         quick_row.pack(fill="x", padx=12, pady=(0, 6))
-        ctk.CTkLabel(quick_row, text="Quick Tender:", font=ctk.CTkFont(size=10), text_color=palette["text_secondary"]).pack(side="left", padx=(0, 6))
+        ctk.CTkLabel(quick_row, text="Quick Tender:", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left", padx=(0, 6))
 
         ctk.CTkButton(quick_row, text="Exact", width=55, height=24, font=ctk.CTkFont(size=10), fg_color=palette["bg_card"], hover_color=palette["border"], text_color=palette["text_primary"], command=self._fill_exact_cash).pack(side="left", padx=2)
         ctk.CTkButton(quick_row, text="+₹100", width=55, height=24, font=ctk.CTkFont(size=10), fg_color=palette["bg_card"], hover_color=palette["border"], text_color=palette["text_primary"], command=lambda: self._add_cash(100)).pack(side="left", padx=2)
@@ -378,13 +440,13 @@ class BillingDialog(ctk.CTkToplevel):
         card_grid.grid_columnconfigure((0, 1), weight=1)
 
         # Cardholder name
-        ctk.CTkLabel(card_grid, text="Cardholder Name:", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"]).grid(row=0, column=0, sticky="w", pady=(2, 0))
+        ctk.CTkLabel(card_grid, text="Cardholder Name:", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette.get("form_label", "#334155")).grid(row=0, column=0, sticky="w", pady=(2, 0))
         self.entry_card_name = ctk.CTkEntry(card_grid, height=28, font=ctk.CTkFont(size=11))
         self.entry_card_name.insert(0, self.order.customer_name if self.order.customer_name else "Valued Guest")
         self.entry_card_name.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=(0, 4))
 
         # Card Number
-        ctk.CTkLabel(card_grid, text="Simulated Card Number (16 digits):", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"]).grid(row=0, column=1, sticky="w", pady=(2, 0))
+        ctk.CTkLabel(card_grid, text="Simulated Card Number (16 digits):", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette.get("form_label", "#334155")).grid(row=0, column=1, sticky="w", pady=(2, 0))
         self.entry_card_num = ctk.CTkEntry(card_grid, height=28, font=ctk.CTkFont(size=11))
         self.entry_card_num.insert(0, "4532 8812 9011 3456")
         self.entry_card_num.grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=(0, 4))
@@ -393,12 +455,12 @@ class BillingDialog(ctk.CTkToplevel):
         exp_row = ctk.CTkFrame(box, fg_color="transparent")
         exp_row.pack(fill="x", padx=12, pady=(0, 8))
 
-        ctk.CTkLabel(exp_row, text="Expiry (MM/YY):", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"]).pack(side="left")
+        ctk.CTkLabel(exp_row, text="Expiry (MM/YY):", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left")
         self.entry_card_exp = ctk.CTkEntry(exp_row, width=80, height=28, font=ctk.CTkFont(size=11))
         self.entry_card_exp.insert(0, "12/28")
         self.entry_card_exp.pack(side="left", padx=(6, 15))
 
-        ctk.CTkLabel(exp_row, text="CVV/CVC:", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"]).pack(side="left")
+        ctk.CTkLabel(exp_row, text="CVV/CVC:", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left")
         self.entry_card_cvv = ctk.CTkEntry(exp_row, width=60, height=28, font=ctk.CTkFont(size=11), show="•")
         self.entry_card_cvv.insert(0, "888")
         self.entry_card_cvv.pack(side="left", padx=(6, 15))
@@ -432,7 +494,7 @@ class BillingDialog(ctk.CTkToplevel):
         upi_row = ctk.CTkFrame(box, fg_color="transparent")
         upi_row.pack(fill="x", padx=12, pady=(0, 8))
 
-        ctk.CTkLabel(upi_row, text="Customer UPI ID / VPA:", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(side="left")
+        ctk.CTkLabel(upi_row, text="Customer UPI ID / VPA:", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left")
         self.entry_upi_id = ctk.CTkEntry(upi_row, width=220, height=30, font=ctk.CTkFont(size=12))
         self.entry_upi_id.insert(0, "guest@okaxis")
         self.entry_upi_id.pack(side="left", padx=10)

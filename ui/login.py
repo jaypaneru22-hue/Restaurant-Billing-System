@@ -44,7 +44,7 @@ class LoginFrame(ctk.CTkFrame):
         ).pack(pady=(4, 0))
 
         # Username entry
-        user_lbl = ctk.CTkLabel(card, text="Username", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_primary"], anchor="w")
+        user_lbl = ctk.CTkLabel(card, text="Username", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155"), anchor="w")
         user_lbl.pack(fill="x", padx=35, pady=(4, 2))
         self.username_entry = ctk.CTkEntry(
             card,
@@ -57,7 +57,7 @@ class LoginFrame(ctk.CTkFrame):
         self.username_entry.insert(0, "admin")
 
         # Password entry
-        pass_lbl = ctk.CTkLabel(card, text="Password", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_primary"], anchor="w")
+        pass_lbl = ctk.CTkLabel(card, text="Password", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155"), anchor="w")
         pass_lbl.pack(fill="x", padx=35, pady=(4, 2))
         self.password_entry = ctk.CTkEntry(
             card,

@@ -52,7 +52,7 @@ class ReportsFrame(ctk.CTkFrame):
         controls = ctk.CTkFrame(header, fg_color="transparent")
         controls.pack(side="right")
 
-        ctk.CTkLabel(controls, text="Period:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_secondary"]).pack(side="left", padx=(0, 6))
+        ctk.CTkLabel(controls, text="Period:", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left", padx=(0, 6))
 
         self.period_seg = ctk.CTkSegmentedButton(
             controls,

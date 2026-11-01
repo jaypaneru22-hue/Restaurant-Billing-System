@@ -11,6 +11,7 @@ from ui.profile import ProfileFrame
 from services.auth_service import AuthService, auth_service
 from services.billing_service import BillingService, billing_service
 from services.order_service import OrderService, order_service
+from utils.window_utils import center_dialog
 from config.settings import (
     APP_NAME,
     ACADEMIC_SUBJECT,
@@ -26,9 +27,8 @@ class ShortcutsHelpDialog(ctk.CTkToplevel):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.title("Keyboard Accelerators (Q08-F4)")
-        self.geometry("480x420")
-        self.minsize(440, 380)
         self.resizable(False, False)
+        center_dialog(self, master, target_width=480, target_height=420, min_width=440, min_height=380)
         self.grab_set()
 
         palette = theme_manager.get_palette()

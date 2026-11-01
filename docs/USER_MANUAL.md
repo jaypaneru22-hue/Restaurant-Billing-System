@@ -21,6 +21,8 @@ python main.py
 ```
 *(Alternatively, you may launch with the virtual environment interpreter: `.venv\Scripts\python.exe main.py`)*
 
+The application automatically centers itself on your primary display dynamically, adapting cleanly to both 1366×768 laptop screens and high-resolution desktop monitors without fixed coordinate cutoffs or spilling off-screen. All child dialogs (POS Settlement, Itemized Receipt, Dish Dialog, Keyboard Shortcuts) also center relative to the main application window.
+
 ### 1.2 Demonstration User Accounts
 The application initializes with two seeded demonstration accounts:
 - **Administrator Role:**
@@ -128,6 +130,8 @@ The application provides a consistent top header bar, left navigation sidebar, a
    - Unique Bill Number (`BILL-YYYYMMDD-XXXX`) and Order Number (`ORD-YYYYMMDD-XXXX`).
    - Date, time, table, customer, line items, Subtotal, Discount, GST tax, and Net Payable Total.
    - Payment method and settlement status.
-2. Click **"📋 Copy Receipt"** to copy the text for thermal receipt printers, or press **`Esc`** to close.
+2. Click **"🖨️ Print Receipt"** to dispatch the receipt directly to your default Windows printer or printer spooler. The receipt is also automatically saved as a permanent text file in `data/receipts/RECEIPT_<bill_number>_<timestamp>.txt`.
+   - If no physical printer is connected or active, the application displays a friendly message confirming the receipt file was saved on disk, and reveals an **"📂 Open File"** button to open and print it from Windows Notepad.
+   - Press **`Esc`** or click **"Close (Esc)"** when finished.
 3. To reprint any past bill, navigate to **"📜 Orders History"** (`Alt+O`), locate the order, and click **"View Receipt 🧾"**.
 

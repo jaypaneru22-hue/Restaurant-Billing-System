@@ -1,5 +1,6 @@
 """Billing service providing financial calculations, transaction persistence, and receipt formatting."""
 from typing import Optional, Tuple, Dict, Any
+from pathlib import Path
 from decimal import Decimal
 from models.bill import Bill
 from models.order import Order
@@ -152,6 +153,44 @@ class BillingService:
         lines.append("=" * width)
 
         return "\n".join(lines)
+
+    def print_receipt(self, receipt_text: str, bill_number: str = "RECEIPT") -> tuple[bool, str, Optional[Path]]:
+        """Saves formatted receipt to data/receipts/ and submits it to the OS default printer.
+
+        Returns (success: bool, message: str, file_path: Optional[Path]).
+        Handles printer-unavailable errors gracefully without crashing or pretending success.
+        """
+        if not receipt_text or not receipt_text.strip():
+            return False, "Receipt content is empty.", None
+
+        import sys
+        import os
+        from datetime import datetime
+        from config.settings import DATA_DIR
+        try:
+            receipts_dir = DATA_DIR / "receipts"
+            receipts_dir.mkdir(parents=True, exist_ok=True)
+
+            safe_num = "".join(c for c in bill_number if c.isalnum() or c in ("-", "_"))
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_path = receipts_dir / f"RECEIPT_{safe_num}_{timestamp}.txt"
+
+            file_path.write_text(receipt_text, encoding="utf-8")
+            logger.info(f"Receipt written to file: {file_path}")
+
+            if sys.platform == "win32":
+                try:
+                    # Windows native default printer action
+                    os.startfile(str(file_path), "print")
+                    return True, f"Receipt successfully sent to printer. File saved: {file_path.name}", file_path
+                except OSError as pe:
+                    logger.warning(f"Native print action failed: {pe}")
+                    return False, f"Printer unavailable. Receipt saved: data/receipts/{file_path.name}", file_path
+            else:
+                return True, f"Receipt saved to data/receipts/{file_path.name}", file_path
+        except Exception as e:
+            logger.error(f"Failed to process receipt print: {e}")
+            return False, f"Print error: {str(e)}", None
 
 
 # Global billing service instance

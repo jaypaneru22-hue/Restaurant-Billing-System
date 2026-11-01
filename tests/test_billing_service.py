@@ -96,3 +96,39 @@ def test_historical_price_protection(billing_fixture):
 
     reloaded_bill = service.get_bill_for_order(order.id)
     assert reloaded_bill.subtotal == Decimal("200.00")
+
+
+def test_print_receipt_success(billing_fixture, tmp_path):
+    service, _, _, _ = billing_fixture
+    receipt_content = "=== RESTAURANT RECEIPT ===\nBill No: B-101\nTotal: Rs. 500.00"
+
+    from unittest.mock import patch
+    with patch("os.startfile", return_value=None) as mock_startfile:
+        ok, msg, path = service.print_receipt(receipt_content, bill_number="B-101")
+        assert ok is True
+        assert "successfully" in msg
+        assert path is not None
+        assert path.exists()
+        assert path.read_text(encoding="utf-8") == receipt_content
+        mock_startfile.assert_called_once()
+
+
+def test_print_receipt_printer_unavailable_handled_gracefully(billing_fixture):
+    service, _, _, _ = billing_fixture
+    receipt_content = "=== RESTAURANT RECEIPT ===\nBill No: B-102\nTotal: Rs. 250.00"
+
+    from unittest.mock import patch
+    with patch("os.startfile", side_effect=OSError("No default printer found")):
+        ok, msg, path = service.print_receipt(receipt_content, bill_number="B-102")
+        assert ok is False
+        assert "Printer unavailable" in msg
+        assert path is not None
+        assert path.exists()
+
+
+def test_print_receipt_empty_content(billing_fixture):
+    service, _, _, _ = billing_fixture
+    ok, msg, path = service.print_receipt("", bill_number="B-103")
+    assert ok is False
+    assert "empty" in msg
+    assert path is None
