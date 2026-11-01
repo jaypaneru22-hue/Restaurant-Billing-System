@@ -125,3 +125,58 @@ def validate_order_status(status: str) -> Tuple[bool, str]:
     if not status or status.upper() not in VALID_ORDER_STATUSES:
         return False, f"Invalid order status. Must be one of: {', '.join(VALID_ORDER_STATUSES)}."
     return True, "Order status is valid."
+
+
+def validate_cash_tendered(tendered_input: str | float | Decimal | int, total_due: Decimal) -> Tuple[bool, str, Decimal, Decimal]:
+    """Validates tendered cash amount and calculates change due."""
+    if tendered_input is None or str(tendered_input).strip() == "":
+        return False, "Please enter tendered cash amount.", Decimal("0.00"), Decimal("0.00")
+    try:
+        tendered = Decimal(str(tendered_input).strip()).quantize(Decimal("0.01"))
+    except (InvalidOperation, ValueError, TypeError):
+        return False, "Tendered cash must be a valid numerical value.", Decimal("0.00"), Decimal("0.00")
+
+    if tendered < Decimal("0.00"):
+        return False, "Tendered amount cannot be negative.", Decimal("0.00"), Decimal("0.00")
+
+    if tendered < total_due:
+        shortfall = (total_due - tendered).quantize(Decimal("0.01"))
+        return False, f"Insufficient cash tendered. Shortfall of ₹{shortfall}.", tendered, Decimal("0.00")
+
+    change_due = (tendered - total_due).quantize(Decimal("0.01"))
+    return True, f"Tendered ₹{tendered}. Change due: ₹{change_due}.", tendered, change_due
+
+
+def validate_demo_card(card_number: str, cardholder_name: str, expiry: str, cvv: str) -> Tuple[bool, str]:
+    """Validates simulated demo card inputs without storing or sending sensitive banking data."""
+    if not cardholder_name or not cardholder_name.strip():
+        return False, "Cardholder name is required for simulated payment."
+
+    clean_num = re.sub(r"[\s\-]", "", card_number or "")
+    if not clean_num.isdigit():
+        return False, "Card number must contain digits only."
+    if len(clean_num) not in (15, 16):
+        return False, "Card number must be 15 or 16 digits (e.g. 4532 8812 9011 3456)."
+
+    clean_expiry = (expiry or "").strip()
+    if not re.match(r"^(0[1-9]|1[0-2])\/?([0-9]{2})$", clean_expiry):
+        return False, "Expiry date must be in MM/YY format (e.g. 12/28)."
+
+    clean_cvv = (cvv or "").strip()
+    if not clean_cvv.isdigit() or len(clean_cvv) not in (3, 4):
+        return False, "CVV/CVC must be 3 or 4 digits."
+
+    return True, "Simulated card details validated successfully."
+
+
+def validate_demo_upi(upi_id: str) -> Tuple[bool, str]:
+    """Validates simulated Virtual Payment Address (UPI ID) format."""
+    if not upi_id or not upi_id.strip():
+        return False, "Please enter a simulated UPI ID (e.g. cashier@upi or customer@okhdfcbank)."
+
+    clean_vpa = upi_id.strip()
+    if not re.match(r"^[a-zA-Z0-9.\-_]{2,}@[a-zA-Z0-9]{2,}$", clean_vpa):
+        return False, "Invalid UPI ID format. Format must be username@handle (e.g. demo@okhdfcbank)."
+
+    return True, "Simulated UPI ID validated successfully."
+
