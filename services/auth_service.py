@@ -46,6 +46,10 @@ class AuthService:
             logger.warning(f"Failed login attempt: incorrect password for username '{username}'")
             return False, "Invalid username or password.", None
 
+        if not user.is_active:
+            logger.warning(f"Login rejected: account '{username}' is deactivated.")
+            return False, "Account deactivated. Contact system administrator.", None
+
         self._current_user = user
         logger.info(f"Successful login for user '{username}' (role: {user.role})")
         return True, "Login successful.", user

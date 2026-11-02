@@ -11,6 +11,8 @@ class User:
     password_hash: str
     full_name: str
     role: str = "CASHIER"
+    is_active: bool = True
+    last_login: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

@@ -98,12 +98,106 @@ def seed_initial_data(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def run_migrations(conn: sqlite3.Connection) -> None:
+    """Executes idempotent schema upgrades for enterprise features."""
+    cursor = conn.cursor()
+
+    # 1. Add is_active & last_login to users if missing
+    cursor.execute("PRAGMA table_info(users);")
+    user_cols = {r[1] for r in cursor.fetchall()}
+    if "is_active" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1;")
+    if "last_login" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP;")
+
+    # 2. Restaurant Profile & Legal Info
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS restaurant_profile (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        restaurant_name TEXT NOT NULL DEFAULT 'TQM Multi-Cuisine Restaurant',
+        tagline TEXT DEFAULT 'Excellence in Food & Service',
+        address TEXT DEFAULT '123 MG Road, Connaught Place, New Delhi',
+        phone TEXT DEFAULT '+91 98765 43210',
+        email TEXT DEFAULT 'contact@tqmrestaurant.com',
+        gstin TEXT DEFAULT '07AAAAA0000A1Z5',
+        fssai_license TEXT DEFAULT '10019011000123',
+        receipt_header TEXT DEFAULT 'Thank you for dining with us!',
+        receipt_footer TEXT DEFAULT 'Goods once sold cannot be returned. Please visit again!',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    cursor.execute("SELECT COUNT(*) FROM restaurant_profile;")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT INTO restaurant_profile (id) VALUES (1);")
+
+    # 3. Enterprise Billing & Tax Configuration
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS billing_config (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        cgst_rate NUMERIC NOT NULL DEFAULT 2.5,
+        sgst_rate NUMERIC NOT NULL DEFAULT 2.5,
+        service_charge_rate NUMERIC NOT NULL DEFAULT 0.0,
+        enable_service_charge INTEGER NOT NULL DEFAULT 0,
+        enable_discounts INTEGER NOT NULL DEFAULT 1,
+        max_discount_percent NUMERIC NOT NULL DEFAULT 25.0,
+        round_off_total INTEGER NOT NULL DEFAULT 1,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+    cursor.execute("SELECT COUNT(*) FROM billing_config;")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT INTO billing_config (id) VALUES (1);")
+
+    # 4. Roles & Permissions Matrix
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS roles_permissions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        role TEXT NOT NULL,
+        module TEXT NOT NULL,
+        permission_key TEXT NOT NULL,
+        is_granted INTEGER NOT NULL DEFAULT 1,
+        UNIQUE(role, module, permission_key)
+    );
+    """)
+
+    # 5. Tamper-Evident Security & Audit Trail
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT NOT NULL,
+        action TEXT NOT NULL,
+        module TEXT NOT NULL,
+        details TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+    """)
+
+    # 6. Customer Feedback & Satisfaction (Q08)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS customer_feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id INTEGER,
+        customer_name TEXT DEFAULT 'Guest',
+        table_number TEXT,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        comment TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (order_id) REFERENCES orders(id)
+    );
+    """)
+
+    conn.commit()
+
+
 def initialize_database(db_manager: DatabaseManager = db) -> None:
-    """Ensures schema is created and initial seed data populated."""
+    """Ensures schema is created, initial seed data populated, and migrations applied."""
     conn = db_manager.get_connection()
     try:
         init_schema(conn)
         seed_initial_data(conn)
+        run_migrations(conn)
         logger.info(f"Database at {db_manager.db_path} ready for operations.")
     finally:
         conn.close()
