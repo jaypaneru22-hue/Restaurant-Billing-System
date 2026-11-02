@@ -100,6 +100,199 @@ class DashboardService:
             "active_menu_items_count": active_menu_count
         }
 
+    def get_admin_metrics(self) -> Dict[str, Any]:
+        """Calculates executive-level restaurant management metrics."""
+        # 1. Total All-Time Gross Sales
+        all_time_row = self.db.fetchone("SELECT COALESCE(SUM(final_total), 0) AS total_rev, COUNT(*) AS total_bills FROM bills;")
+        total_revenue = Decimal(str(all_time_row["total_rev"])) if all_time_row else Decimal("0.00")
+        total_bills = int(all_time_row["total_bills"]) if all_time_row else 0
+
+        # 2. Today's Gross Sales
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        today_row = self.db.fetchone(
+            "SELECT COALESCE(SUM(final_total), 0) AS today_rev, COUNT(*) AS today_count FROM bills WHERE DATE(billed_at) = DATE(?);",
+            (today_str,)
+        )
+        today_sales = Decimal(str(today_row["today_rev"])) if today_row else Decimal("0.00")
+        today_orders = int(today_row["today_count"]) if today_row else 0
+
+        # 3. Active Pending Orders
+        pending_row = self.db.fetchone("SELECT COUNT(*) AS pending_count FROM orders WHERE status = 'PENDING';")
+        pending_count = int(pending_row["pending_count"]) if pending_row else 0
+
+        # 4. Active Catalog Health
+        catalog_row = self.db.fetchone(
+            "SELECT COUNT(*) AS total_dishes, SUM(CASE WHEN is_available = 1 THEN 1 ELSE 0 END) AS active_dishes FROM menu_items;"
+        )
+        total_dishes = int(catalog_row["total_dishes"]) if catalog_row else 0
+        active_dishes = int(catalog_row["active_dishes"]) if catalog_row and catalog_row["active_dishes"] else 0
+
+        # 5. Staff count
+        staff_row = self.db.fetchone("SELECT COUNT(*) AS total_staff FROM users;")
+        total_staff = int(staff_row["total_staff"]) if staff_row else 0
+
+        # 6. Payment breakdown
+        pay_rows = self.db.fetchall("SELECT payment_method, COALESCE(SUM(final_total), 0) as total FROM bills GROUP BY payment_method;")
+        payment_breakdown = {r["payment_method"]: Decimal(str(r["total"])).quantize(Decimal("0.01")) for r in pay_rows}
+
+        # 7. Recent transactions with Cashier & Table
+        recent_rows = self.db.fetchall(
+            """SELECT o.order_number, o.customer_name, o.table_number, o.status,
+                      COALESCE(u.full_name, 'Staff') AS staff_name,
+                      COALESCE(b.final_total, 0) AS final_total,
+                      COALESCE(b.payment_method, '-') AS payment_method,
+                      o.created_at
+               FROM orders o
+               LEFT JOIN users u ON o.user_id = u.id
+               LEFT JOIN bills b ON o.id = b.order_id
+               ORDER BY o.id DESC LIMIT 6;"""
+        )
+        recent_txns = [
+            {
+                "order_number": r["order_number"],
+                "customer": r["customer_name"],
+                "table": r["table_number"],
+                "status": r["status"],
+                "staff": r["staff_name"],
+                "amount": Decimal(str(r["final_total"])).quantize(Decimal("0.01")),
+                "payment_method": r["payment_method"],
+                "created_at": r["created_at"]
+            }
+            for r in recent_rows
+        ]
+
+        # 8. Average Order Value
+        aov = (total_revenue / Decimal(total_bills)).quantize(Decimal("0.01")) if total_bills > 0 else Decimal("0.00")
+
+        return {
+            "total_revenue": total_revenue.quantize(Decimal("0.01")),
+            "today_sales": today_sales.quantize(Decimal("0.01")),
+            "today_orders": today_orders,
+            "total_bills": total_bills,
+            "pending_count": pending_count,
+            "active_dishes": active_dishes,
+            "total_dishes": total_dishes,
+            "total_staff": total_staff,
+            "average_order_value": aov,
+            "payment_breakdown": payment_breakdown,
+            "recent_transactions": recent_txns
+        }
+
+    def get_cashier_metrics(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """Calculates shift and billing-focused metrics for front-counter cashiers."""
+        today_str = datetime.now().strftime("%Y-%m-%d")
+
+        # 1. My shift completed tickets & sales today
+        if user_id:
+            sales_row = self.db.fetchone(
+                """SELECT COUNT(b.id) AS my_count, COALESCE(SUM(b.final_total), 0) AS my_sales
+                   FROM bills b
+                   JOIN orders o ON b.order_id = o.id
+                   WHERE o.user_id = ? AND DATE(b.billed_at) = DATE(?);""",
+                (user_id, today_str)
+            )
+        else:
+            sales_row = self.db.fetchone(
+                """SELECT COUNT(b.id) AS my_count, COALESCE(SUM(b.final_total), 0) AS my_sales
+                   FROM bills b
+                   WHERE DATE(b.billed_at) = DATE(?);""",
+                (today_str,)
+            )
+
+        shift_sales = Decimal(str(sales_row["my_sales"])) if sales_row else Decimal("0.00")
+        shift_tickets = int(sales_row["my_count"]) if sales_row else 0
+
+        # 2. Active Pending counter tickets
+        pending_row = self.db.fetchone("SELECT COUNT(*) AS pending_count FROM orders WHERE status = 'PENDING';")
+        pending_count = int(pending_row["pending_count"]) if pending_row else 0
+
+        # 3. Recent tickets created by / assigned to this terminal
+        recent_rows = self.db.fetchall(
+            """SELECT o.id, o.order_number, o.customer_name, o.table_number, o.status,
+                      COALESCE(b.final_total, 0) AS final_total,
+                      COALESCE(b.payment_method, '-') AS payment_method,
+                      o.created_at
+               FROM orders o
+               LEFT JOIN bills b ON o.id = b.order_id
+               ORDER BY o.id DESC LIMIT 5;"""
+        )
+        recent_tickets = [
+            {
+                "id": r["id"],
+                "order_number": r["order_number"],
+                "customer": r["customer_name"],
+                "table": r["table_number"],
+                "status": r["status"],
+                "total": Decimal(str(r["final_total"])).quantize(Decimal("0.01")),
+                "payment_method": r["payment_method"],
+                "created_at": r["created_at"]
+            }
+            for r in recent_rows
+        ]
+
+        return {
+            "shift_sales": shift_sales.quantize(Decimal("0.01")),
+            "shift_tickets": shift_tickets,
+            "pending_count": pending_count,
+            "terminal_status": "Online • Ready for Billing",
+            "recent_tickets": recent_tickets
+        }
+
+    def get_manager_metrics(self) -> Dict[str, Any]:
+        """Calculates floor operations and catalog oversight metrics for Shift Managers."""
+        today_str = datetime.now().strftime("%Y-%m-%d")
+
+        # 1. Floor Revenue Today
+        today_row = self.db.fetchone(
+            "SELECT COALESCE(SUM(final_total), 0) AS today_rev, COUNT(*) AS today_count FROM bills WHERE DATE(billed_at) = DATE(?);",
+            (today_str,)
+        )
+        floor_revenue = Decimal(str(today_row["today_rev"])) if today_row else Decimal("0.00")
+        orders_today = int(today_row["today_count"]) if today_row else 0
+
+        # 2. Active Pending Tickets
+        pending_row = self.db.fetchone("SELECT COUNT(*) AS pending_count FROM orders WHERE status = 'PENDING';")
+        pending_count = int(pending_row["pending_count"]) if pending_row else 0
+
+        # 3. Out-of-Stock Dishes (The 86 List)
+        oos_row = self.db.fetchone("SELECT COUNT(*) AS oos_count FROM menu_items WHERE is_available = 0;")
+        oos_count = int(oos_row["oos_count"]) if oos_row else 0
+
+        # 4. Total Menu Items
+        total_items_row = self.db.fetchone("SELECT COUNT(*) AS total_count FROM menu_items;")
+        total_items = int(total_items_row["total_count"]) if total_items_row else 0
+
+        # 5. Active Tables & Pending Orders queue
+        pending_rows = self.db.fetchall(
+            """SELECT o.id, o.order_number, o.customer_name, o.table_number, o.status, o.created_at,
+                      COALESCE(SUM(oi.quantity), 0) AS item_count
+               FROM orders o
+               LEFT JOIN order_items oi ON o.id = oi.order_id
+               WHERE o.status = 'PENDING'
+               GROUP BY o.id
+               ORDER BY o.id ASC LIMIT 5;"""
+        )
+        pending_orders = [
+            {
+                "id": r["id"],
+                "order_number": r["order_number"],
+                "customer": r["customer_name"],
+                "table": r["table_number"],
+                "items": int(r["item_count"]),
+                "created_at": r["created_at"]
+            }
+            for r in pending_rows
+        ]
+
+        return {
+            "floor_revenue": floor_revenue.quantize(Decimal("0.01")),
+            "orders_today": orders_today,
+            "pending_count": pending_count,
+            "oos_count": oos_count,
+            "total_items": total_items,
+            "pending_orders": pending_orders
+        }
+
 
 # Global dashboard service instance
 dashboard_service = DashboardService()

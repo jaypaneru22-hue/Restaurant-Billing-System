@@ -22,6 +22,12 @@ class AuthService:
     def is_admin(self) -> bool:
         return self._current_user is not None and self._current_user.is_admin()
 
+    def is_manager(self) -> bool:
+        return self._current_user is not None and self._current_user.is_manager()
+
+    def is_cashier(self) -> bool:
+        return self._current_user is not None and self._current_user.is_cashier()
+
     def login(self, username: str, password: str) -> Tuple[bool, str, Optional[User]]:
         """Authenticates user against stored PBKDF2 hash and establishes active session."""
         valid_user, err_msg = validate_username(username)

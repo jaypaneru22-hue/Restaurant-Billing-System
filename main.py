@@ -105,7 +105,7 @@ class RestaurantBillingApp(ctk.CTk):
 
     def __init__(self):
         super().__init__()
-        self.title(f"{APP_NAME} — {STUDENT_NAME} ({REGISTRATION_NUMBER}) — {QUALITY_GOAL}")
+        self.title("Restaurant Management Platform — Enterprise Edition")
         center_window(self, target_width=1240, target_height=750, min_width=1024, min_height=640)
 
         # Apply default theme

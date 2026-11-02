@@ -1,6 +1,7 @@
-"""Main application window, navigation sidebar, and global keyboard shortcuts (Q08-F3 & Q08-F4)."""
-import customtkinter as ctk
+"""Main application window, dynamic role-based navigation, and global keyboard shortcuts."""
 from typing import Callable, Optional
+import customtkinter as ctk
+
 from ui.theme_manager import theme_manager
 from ui.dashboard import DashboardFrame
 from ui.orders import NewOrderFrame, OrderHistoryFrame
@@ -12,21 +13,14 @@ from services.auth_service import AuthService, auth_service
 from services.billing_service import BillingService, billing_service
 from services.order_service import OrderService, order_service
 from utils.window_utils import center_dialog
-from config.settings import (
-    APP_NAME,
-    ACADEMIC_SUBJECT,
-    REGISTRATION_NUMBER,
-    QUALITY_GOAL,
-    ACADEMIC_SESSION
-)
 
 
 class ShortcutsHelpDialog(ctk.CTkToplevel):
-    """Modal displaying all supported cashier keyboard accelerators (Q08-F4)."""
+    """Modal displaying all supported cashier keyboard accelerators."""
 
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
-        self.title("Keyboard Accelerators (Q08-F4)")
+        self.title("Keyboard Shortcuts Reference")
         self.resizable(False, False)
         center_dialog(self, master, target_width=480, target_height=420, min_width=440, min_height=380)
         self.grab_set()
@@ -45,11 +39,11 @@ class ShortcutsHelpDialog(ctk.CTkToplevel):
         box.pack(fill="both", expand=True, padx=25, pady=(0, 15))
 
         shortcuts = [
-            ("Alt + D  /  Ctrl + D", "Navigate to Interactive Dashboard"),
+            ("Alt + D  /  Ctrl + D", "Navigate to Dashboard"),
             ("Alt + N  /  Ctrl + N", "Navigate to New POS Order (Billing)"),
             ("Alt + M  /  Ctrl + M", "Navigate to Menu Catalog Management"),
             ("Alt + O  /  Ctrl + O", "Navigate to Orders History & Billing"),
-            ("Alt + R  /  Ctrl + R", "Navigate to Visual Reports & Analytics"),
+            ("Alt + R  /  Ctrl + R", "Navigate to Sales Reports & Analytics"),
             ("Alt + P  /  Ctrl + P", "Navigate to User Profile"),
             ("Alt + S  /  Ctrl + S", "Navigate to System Settings"),
             ("Alt + T", "Toggle Theme Mode (Light / Dark)"),
@@ -84,6 +78,8 @@ class MainWindow(ctk.CTkFrame):
         super().__init__(master, **kwargs)
         self.on_logout = on_logout
         self.auth_svc = auth_svc
+        self.user = self.auth_svc.current_user
+        self.user_role = self.user.role.upper() if self.user else "ADMIN"
         self.current_view_name = "dashboard"
         self.current_view = None
 
@@ -91,6 +87,10 @@ class MainWindow(ctk.CTkFrame):
         self._build_ui()
         self._bind_keyboard_shortcuts()
         self.navigate_to("dashboard")
+
+    def destroy(self):
+        theme_manager.unsubscribe(self.on_theme_changed)
+        super().destroy()
 
     def on_theme_changed(self, theme_name: str):
         if self.winfo_exists():
@@ -128,8 +128,8 @@ class MainWindow(ctk.CTkFrame):
         brand_box.pack(side="left", padx=20)
         ctk.CTkLabel(
             brand_box,
-            text=f"🍽️ {APP_NAME}",
-            font=ctk.CTkFont(size=17, weight="bold"),
+            text="🍽️ RESTAURANT MANAGEMENT PLATFORM",
+            font=ctk.CTkFont(size=16, weight="bold"),
             text_color=palette.get("header_text", palette.get("heading", palette["text_primary"]))
         ).pack(side="left")
 
@@ -151,7 +151,7 @@ class MainWindow(ctk.CTkFrame):
         )
         btn_sc.pack(side="left", padx=4)
 
-        # Theme Toggle Button (Q08-F3)
+        # Theme Toggle Button
         self.theme_btn = ctk.CTkButton(
             hdr_right,
             text="🌙 Dark Mode" if theme_manager.current_theme == "light" else "☀️ Light Mode",
@@ -165,23 +165,27 @@ class MainWindow(ctk.CTkFrame):
         )
         self.theme_btn.pack(side="left", padx=4)
 
-        # Active User Identity Pill
-        user = self.auth_svc.current_user
-        user_name = user.full_name if user else "Guest Cashier"
-        user_role = user.role if user else "CASHIER"
-        user_pill = ctk.CTkLabel(
-            hdr_right,
-            text=f"👤 {user_name} ({user_role})",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            text_color=palette.get("header_text", palette["accent"])
-        )
-        user_pill.pack(side="left", padx=10)
+        # Active User Role Pill
+        role_colors = {
+            "ADMIN": ("#EEF2FF", "#4F46E5"),
+            "CASHIER": ("#ECFDF5", "#059669"),
+            "MANAGER": ("#FFFBEB", "#D97706")
+        }
+        bg_col, txt_col = role_colors.get(self.user_role, ("#F1F5F9", "#334155"))
+        role_pill = ctk.CTkFrame(hdr_right, fg_color=bg_col, corner_radius=6)
+        role_pill.pack(side="left", padx=(8, 4))
+        ctk.CTkLabel(
+            role_pill,
+            text=f"● {self.user_role}",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color=txt_col
+        ).pack(padx=8, pady=3)
 
         # Logout Button
         logout_btn = ctk.CTkButton(
             hdr_right,
-            text="🚪 Logout",
-            width=80,
+            text="🚪 Sign Out",
+            width=85,
             height=32,
             font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=palette["danger"],
@@ -189,14 +193,14 @@ class MainWindow(ctk.CTkFrame):
             text_color="#FFFFFF",
             command=self._handle_logout
         )
-        logout_btn.pack(side="left", padx=4)
+        logout_btn.pack(side="left", padx=(4, 0))
 
         # =====================================================================
-        # BOTTOM ACADEMIC STATUS BAR
+        # BOTTOM STATUS BAR (COMMERCIAL TERMINAL METADATA)
         # =====================================================================
         self.status_bar = ctk.CTkFrame(
             self,
-            height=28,
+            height=26,
             fg_color=palette["bg_secondary"],
             corner_radius=0,
             border_width=1,
@@ -204,21 +208,22 @@ class MainWindow(ctk.CTkFrame):
         )
         self.status_bar.pack(fill="x", side="bottom")
 
-        status_text = f"{ACADEMIC_SUBJECT}  |  Reg No: {REGISTRATION_NUMBER}  |  Quality Goal: {QUALITY_GOAL}  |  Session: {ACADEMIC_SESSION}"
+        terminal_id = "ADMIN-01" if self.user_role == "ADMIN" else "COUNTER-01"
+        status_text = f"Restaurant Management Platform  |  Terminal: {terminal_id}  |  System Status: Operational  |  Database: Online (Connected)"
         ctk.CTkLabel(
             self.status_bar,
             text=status_text,
             font=ctk.CTkFont(size=10),
             text_color=palette["text_secondary"]
-        ).pack(side="left", padx=20)
+        ).pack(side="left", padx=18)
 
         # =====================================================================
-        # CENTER WORKSPACE (BLUE SIDEBAR + WHITE CONTENT AREA)
+        # CENTER WORKSPACE (DEEP NAVY SIDEBAR + WORKSPACE)
         # =====================================================================
         workspace = ctk.CTkFrame(self, fg_color=palette["bg_primary"])
         workspace.pack(fill="both", expand=True)
 
-        # Left Navigation Sidebar (Deep Blue / Navy: #173B70)
+        # Left Navigation Sidebar
         self.sidebar_frame = ctk.CTkFrame(
             workspace,
             width=230,
@@ -230,61 +235,114 @@ class MainWindow(ctk.CTkFrame):
         self.sidebar_frame.pack(side="left", fill="y")
         self.sidebar_frame.pack_propagate(False)
 
-        # Sidebar Header Branding
+        # Sidebar Header Branding — Distinct by Role
         side_head = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
-        side_head.pack(fill="x", padx=16, pady=(18, 12))
+        side_head.pack(fill="x", padx=16, pady=(18, 10))
+
+        if self.user_role == "CASHIER":
+            head_title = "BILLING TERMINAL"
+            head_sub = "Counter Point-of-Sale"
+        elif self.user_role == "MANAGER":
+            head_title = "FLOOR OPERATIONS"
+            head_sub = "Shift & Catalog Management"
+        else:
+            head_title = "RESTAURANT ADMIN"
+            head_sub = "Executive Management"
 
         ctk.CTkLabel(
             side_head,
-            text="RESTAURANT POS",
+            text=head_title,
             font=ctk.CTkFont(size=13, weight="bold"),
             text_color=palette.get("sidebar_text", "#FFFFFF")
         ).pack(anchor="w")
 
         ctk.CTkLabel(
             side_head,
-            text="TQM Continuous Quality",
+            text=head_sub,
             font=ctk.CTkFont(size=10),
             text_color=palette.get("sidebar_text_muted", "#BFDBFE")
         ).pack(anchor="w", pady=(1, 0))
 
-        # Divider line
+        # Divider
         div = ctk.CTkFrame(self.sidebar_frame, height=1, fg_color=palette.get("sidebar_secondary", "#245A9B"))
         div.pack(fill="x", padx=14, pady=(0, 10))
 
         ctk.CTkLabel(
             self.sidebar_frame,
             text="NAVIGATION",
-            font=ctk.CTkFont(size=10, weight="bold"),
+            font=ctk.CTkFont(size=9, weight="bold"),
             text_color=palette.get("sidebar_text_muted", "#BFDBFE")
-        ).pack(anchor="w", padx=16, pady=(0, 6))
+        ).pack(anchor="w", padx=16, pady=(0, 4))
 
-        # Sidebar navigation buttons
+        # -------------------------------------------------------------
+        # Role-Specific Sidebar Navigation Items
+        # -------------------------------------------------------------
         self.nav_buttons = {}
-        nav_items = [
-            ("dashboard", "📊 Dashboard", "Alt+D"),
-            ("orders", "➕ New POS Order", "Alt+N"),
-            ("menu", "📋 Menu Management", "Alt+M"),
-            ("orders_history", "📜 Order History", "Alt+O"),
-            ("reports", "📈 Visual Reports", "Alt+R"),
-            ("profile", "👤 User Profile", "Alt+P"),
-            ("settings", "⚙️ System Settings", "Alt+S"),
-        ]
+        if self.user_role == "CASHIER":
+            nav_items = [
+                ("dashboard", "⚡ Shift Overview", "Alt+D"),
+                ("orders", "🛒 Counter Billing", "Alt+N"),
+                ("orders_history", "🧾 Today's Receipts", "Alt+O"),
+                ("profile", "👤 My Profile", "Alt+P"),
+                ("settings", "⚙️ Terminal Settings", "Alt+S"),
+            ]
+        elif self.user_role == "MANAGER":
+            nav_items = [
+                ("dashboard", "📋 Operations Floor", "Alt+D"),
+                ("orders", "🛒 Counter Billing", "Alt+N"),
+                ("menu", "📋 Menu & 86 Catalog", "Alt+M"),
+                ("orders_history", "📜 Order Monitoring", "Alt+O"),
+                ("reports", "📈 Shift Sales Reports", "Alt+R"),
+                ("profile", "👤 My Profile", "Alt+P"),
+            ]
+        else:
+            # ADMIN
+            nav_items = [
+                ("dashboard", "📊 Executive Overview", "Alt+D"),
+                ("orders", "➕ Point of Sale (POS)", "Alt+N"),
+                ("menu", "📋 Menu Management", "Alt+M"),
+                ("orders_history", "📜 Order Audit & History", "Alt+O"),
+                ("reports", "📈 Sales Analytics", "Alt+R"),
+                ("profile", "👤 User Profile", "Alt+P"),
+                ("settings", "⚙️ System Configuration", "Alt+S"),
+            ]
+
+        # Navigation buttons container
+        nav_container = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
+        nav_container.pack(fill="both", expand=True)
 
         for code, label, key_hint in nav_items:
             btn = ctk.CTkButton(
-                self.sidebar_frame,
+                nav_container,
                 text=f"{label}  ({key_hint})",
                 anchor="w",
-                height=40,
-                font=ctk.CTkFont(size=12, weight="bold"),
+                height=38,
+                font=ctk.CTkFont(size=11, weight="bold"),
                 fg_color="transparent",
                 text_color=palette.get("sidebar_text", "#FFFFFF"),
                 hover_color=palette.get("sidebar_hover", "#245A9B"),
                 command=lambda c=code: self.navigate_to(c)
             )
-            btn.pack(fill="x", padx=10, pady=3)
+            btn.pack(fill="x", padx=10, pady=2)
             self.nav_buttons[code] = btn
+
+        # Persistent Staff Info Card at Bottom of Sidebar
+        user_card = ctk.CTkFrame(self.sidebar_frame, fg_color=palette.get("sidebar_secondary", "#245A9B"), corner_radius=8)
+        user_card.pack(fill="x", side="bottom", padx=10, pady=12)
+
+        ctk.CTkLabel(
+            user_card,
+            text=self.user.full_name if self.user else "Staff User",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#FFFFFF"
+        ).pack(anchor="w", padx=10, pady=(8, 1))
+
+        ctk.CTkLabel(
+            user_card,
+            text=f"Role: {self.user_role}",
+            font=ctk.CTkFont(size=9),
+            text_color=palette.get("sidebar_text_muted", "#BFDBFE")
+        ).pack(anchor="w", padx=10, pady=(0, 8))
 
         # Content Area Container (Clean White: #FFFFFF)
         self.content_container = ctk.CTkFrame(workspace, fg_color=palette["bg_primary"])
@@ -298,17 +356,17 @@ class MainWindow(ctk.CTkFrame):
                 w_class = focused.winfo_class().lower()
                 if any(k in w_class for k in ["entry", "text"]):
                     return False
-                parent = getattr(focused, "master", None)
-                if parent is not None:
-                    pw_class = parent.winfo_class().lower()
-                    if any(k in pw_class for k in ["entry", "text"]):
-                        return False
         except Exception:
             pass
         return True
 
     def _safe_navigate(self, view_name: str):
         if self._can_trigger_shortcut():
+            # Role permission check before navigating
+            if self.user_role == "CASHIER" and view_name in ["menu", "reports"]:
+                return
+            if self.user_role == "MANAGER" and view_name in ["settings"]:
+                return
             self.navigate_to(view_name)
 
     def _safe_theme_toggle(self):
@@ -316,7 +374,6 @@ class MainWindow(ctk.CTkFrame):
             self._handle_theme_toggle()
 
     def _bind_keyboard_shortcuts(self):
-        """Binds root window keyboard accelerators with input focus protection (Q08-F4)."""
         root = self.winfo_toplevel()
 
         root.bind("<Alt-d>", lambda e: self._safe_navigate("dashboard"))
@@ -377,17 +434,27 @@ class MainWindow(ctk.CTkFrame):
                 )
 
     def navigate_to(self, view_name: str):
-        """Switches active view and updates navigation highlights."""
+        """Switches active view and updates navigation highlights with strict role guards."""
+        # Enforce role-based view permissions
+        if self.user_role == "CASHIER" and view_name in ["menu", "reports"]:
+            view_name = "dashboard"
+        elif self.user_role == "MANAGER" and view_name in ["settings"]:
+            view_name = "dashboard"
+
         self.current_view_name = view_name
         self._update_nav_button_styles()
 
-        # Destroy old view
+        # Destroy old view cleanly
         if self.current_view:
             self.current_view.destroy()
 
-        # Instantiate new view
+        # Instantiate new view with role context
         if view_name == "dashboard":
-            self.current_view = DashboardFrame(self.content_container, navigate_fn=self.navigate_to)
+            self.current_view = DashboardFrame(
+                self.content_container,
+                navigate_fn=self.navigate_to,
+                role=self.user_role
+            )
         elif view_name == "orders":
             self.current_view = NewOrderFrame(self.content_container, on_proceed_to_bill=self.open_billing_modal)
         elif view_name == "menu":

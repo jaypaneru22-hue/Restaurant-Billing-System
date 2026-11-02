@@ -17,6 +17,12 @@ class User:
     def is_admin(self) -> bool:
         return self.role.upper() == "ADMIN"
 
+    def is_manager(self) -> bool:
+        return self.role.upper() == "MANAGER"
+
+    def is_cashier(self) -> bool:
+        return self.role.upper() == "CASHIER"
+
 
 @dataclass
 class UserSettings:
