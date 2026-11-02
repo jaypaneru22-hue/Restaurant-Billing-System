@@ -67,6 +67,10 @@ class MenuService:
     def get_all_items(self, available_only: bool = False) -> List[MenuItem]:
         return self.menu_repo.list_all(available_only=available_only)
 
+    def get_item(self, item_id: int) -> Optional[MenuItem]:
+        """Fetches a single menu item by ID."""
+        return self.menu_repo.get_by_id(item_id)
+
     def search_items(self, query: str = "", category: Optional[str] = None, available_only: bool = False) -> List[MenuItem]:
         return self.menu_repo.search(query=query, category=category, available_only=available_only)
 

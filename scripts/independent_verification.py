@@ -83,7 +83,7 @@ def verify_five_roles_and_rbac():
     app.geometry("1024x640")
 
     # Cashier attempts to navigate to admin views
-    auth_service.login("cashier1", "Cashier123!")
+    auth_service.login("cashier1", "Cashier@123")
     cashier_win = MainWindow(app, on_logout=lambda: None)
     for forbidden in ["users", "roles", "database", "system_health", "restaurant", "billing_cfg"]:
         cashier_win.navigate_to(forbidden)
@@ -92,7 +92,7 @@ def verify_five_roles_and_rbac():
     cashier_win.destroy()
 
     # Customer attempts to navigate to management views
-    auth_service.login("customer1", "Customer123!")
+    auth_service.login("customer1", "Customer@123")
     cust_win = MainWindow(app, on_logout=lambda: None)
     for forbidden in ["menu", "reports", "users", "tables", "active_orders"]:
         cust_win.navigate_to(forbidden)

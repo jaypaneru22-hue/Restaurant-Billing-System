@@ -196,7 +196,7 @@ class BillingService:
                     return True, f"Receipt successfully sent to printer. File saved: {file_path.name}", file_path
                 except OSError as pe:
                     logger.warning(f"Native print action failed: {pe}")
-                    return False, f"Printer unavailable. Receipt saved: data/receipts/{file_path.name}", file_path
+                    return False, f"Printer unavailable ({str(pe)}). Receipt saved: data/receipts/{file_path.name}", file_path
             else:
                 return True, f"Receipt saved to data/receipts/{file_path.name}", file_path
         except Exception as e:
