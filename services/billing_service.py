@@ -70,7 +70,7 @@ class BillingService:
         order = self.order_repo.get_by_id(order_id)
         if not order:
             return False, "Order not found.", None
-        if not order.is_pending():
+        if order.status in ["COMPLETED", "CANCELLED"]:
             return False, f"Order is already in '{order.status}' status and cannot be billed.", None
         if not order.items:
             return False, "Cannot bill an order with no items.", None

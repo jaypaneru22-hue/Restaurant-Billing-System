@@ -336,11 +336,11 @@ class LoginFrame(ctk.CTkFrame):
         roles_row.pack(fill="x", padx=6, pady=(0, 8))
 
         demo_users = [
-            ("Admin", "admin", "Admin123!"),
-            ("Manager", "manager1", "Manager123!"),
-            ("Cashier", "cashier1", "Cashier123!"),
-            ("Chef", "chef1", "Chef123!"),
-            ("Guest", "customer1", "Customer123!"),
+            ("Admin", "admin", "Admin@123"),
+            ("Manager", "manager1", "Manager@123"),
+            ("Cashier", "cashier1", "Cashier@123"),
+            ("Chef", "chef1", "Chef@123"),
+            ("Guest", "customer1", "Customer@123"),
         ]
 
         for label, u, p in demo_users:

@@ -10,6 +10,17 @@ from models.order import Order
 from utils.window_utils import center_dialog
 
 
+def calculate_equal_split_shares(total_amount: Decimal, num_parties: int) -> List[Decimal]:
+    """Calculates equal split shares with automated penny reconciliation."""
+    total = Decimal(str(total_amount))
+    base_share = (total / Decimal(num_parties)).quantize(Decimal("0.01"))
+    remainder = total - (base_share * num_parties)
+    shares = [base_share] * num_parties
+    if remainder != Decimal("0.00"):
+        shares[0] += remainder
+    return shares
+
+
 class SplitBillingDialog(ctk.CTkToplevel):
     """Modern modal dialog allowing dining guests to divide a tax invoice equally or with custom amounts."""
 
