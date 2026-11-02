@@ -101,41 +101,55 @@ class DashboardService:
         }
 
     def get_admin_metrics(self) -> Dict[str, Any]:
-        """Calculates executive-level restaurant management metrics."""
-        # 1. Total All-Time Gross Sales
-        all_time_row = self.db.fetchone("SELECT COALESCE(SUM(final_total), 0) AS total_rev, COUNT(*) AS total_bills FROM bills;")
-        total_revenue = Decimal(str(all_time_row["total_rev"])) if all_time_row else Decimal("0.00")
-        total_bills = int(all_time_row["total_bills"]) if all_time_row else 0
+        """Calculates executive-level restaurant management metrics directly from SQLite database."""
+        # 1. Total Staff & Active Users
+        staff_row = self.db.fetchone("SELECT COUNT(*) AS total_staff FROM users;")
+        total_staff = int(staff_row["total_staff"]) if staff_row else 0
+        active_users = total_staff
 
-        # 2. Today's Gross Sales
+        # 2. Total Orders (All-time orders count)
+        orders_row = self.db.fetchone("SELECT COUNT(*) AS total_orders FROM orders;")
+        total_orders = int(orders_row["total_orders"]) if orders_row else 0
+
+        # 3. Total Sales (All-time settled revenue) & Total Transactions (Paid bills count)
+        all_time_row = self.db.fetchone(
+            "SELECT COALESCE(SUM(final_total), 0) AS total_rev, COUNT(*) AS total_bills FROM bills WHERE payment_status = 'PAID';"
+        )
+        total_sales = Decimal(str(all_time_row["total_rev"])) if all_time_row else Decimal("0.00")
+        total_transactions = int(all_time_row["total_bills"]) if all_time_row else 0
+
+        # 4. Today's Gross Sales & Today's Orders
         today_str = datetime.now().strftime("%Y-%m-%d")
         today_row = self.db.fetchone(
-            "SELECT COALESCE(SUM(final_total), 0) AS today_rev, COUNT(*) AS today_count FROM bills WHERE DATE(billed_at) = DATE(?);",
+            "SELECT COALESCE(SUM(final_total), 0) AS today_rev, COUNT(*) AS today_count FROM bills WHERE payment_status = 'PAID' AND DATE(billed_at) = DATE(?);",
             (today_str,)
         )
         today_sales = Decimal(str(today_row["today_rev"])) if today_row else Decimal("0.00")
         today_orders = int(today_row["today_count"]) if today_row else 0
 
-        # 3. Active Pending Orders
+        # 5. Active Pending Orders
         pending_row = self.db.fetchone("SELECT COUNT(*) AS pending_count FROM orders WHERE status = 'PENDING';")
-        pending_count = int(pending_row["pending_count"]) if pending_row else 0
+        pending_orders = int(pending_row["pending_count"]) if pending_row else 0
 
-        # 4. Active Catalog Health
+        # 6. System Status Check (Probe connection & foreign keys)
+        try:
+            probe = self.db.fetchone("SELECT 1;")
+            system_status = "ONLINE • HEALTHY" if probe else "DEGRADED"
+        except Exception:
+            system_status = "ERROR"
+
+        # 7. Active Catalog Health
         catalog_row = self.db.fetchone(
             "SELECT COUNT(*) AS total_dishes, SUM(CASE WHEN is_available = 1 THEN 1 ELSE 0 END) AS active_dishes FROM menu_items;"
         )
         total_dishes = int(catalog_row["total_dishes"]) if catalog_row else 0
         active_dishes = int(catalog_row["active_dishes"]) if catalog_row and catalog_row["active_dishes"] else 0
 
-        # 5. Staff count
-        staff_row = self.db.fetchone("SELECT COUNT(*) AS total_staff FROM users;")
-        total_staff = int(staff_row["total_staff"]) if staff_row else 0
-
-        # 6. Payment breakdown
-        pay_rows = self.db.fetchall("SELECT payment_method, COALESCE(SUM(final_total), 0) as total FROM bills GROUP BY payment_method;")
+        # 8. Payment breakdown
+        pay_rows = self.db.fetchall("SELECT payment_method, COALESCE(SUM(final_total), 0) as total FROM bills WHERE payment_status = 'PAID' GROUP BY payment_method;")
         payment_breakdown = {r["payment_method"]: Decimal(str(r["total"])).quantize(Decimal("0.01")) for r in pay_rows}
 
-        # 7. Recent transactions with Cashier & Table
+        # 9. Recent transactions with Cashier & Table
         recent_rows = self.db.fetchall(
             """SELECT o.order_number, o.customer_name, o.table_number, o.status,
                       COALESCE(u.full_name, 'Staff') AS staff_name,
@@ -161,18 +175,27 @@ class DashboardService:
             for r in recent_rows
         ]
 
-        # 8. Average Order Value
-        aov = (total_revenue / Decimal(total_bills)).quantize(Decimal("0.01")) if total_bills > 0 else Decimal("0.00")
+        # 10. Average Order Value
+        aov = (total_sales / Decimal(total_transactions)).quantize(Decimal("0.01")) if total_transactions > 0 else Decimal("0.00")
 
         return {
-            "total_revenue": total_revenue.quantize(Decimal("0.01")),
+            # Required 7 KPIs
+            "total_staff": total_staff,
+            "active_users": active_users,
+            "total_orders": total_orders,
+            "total_sales": total_sales.quantize(Decimal("0.01")),
+            "total_transactions": total_transactions,
+            "pending_orders": pending_orders,
+            "system_status": system_status,
+
+            # Backwards compatibility & chart helpers
+            "total_revenue": total_sales.quantize(Decimal("0.01")),
+            "total_bills": total_transactions,
+            "pending_count": pending_orders,
             "today_sales": today_sales.quantize(Decimal("0.01")),
             "today_orders": today_orders,
-            "total_bills": total_bills,
-            "pending_count": pending_count,
             "active_dishes": active_dishes,
             "total_dishes": total_dishes,
-            "total_staff": total_staff,
             "average_order_value": aov,
             "payment_breakdown": payment_breakdown,
             "recent_transactions": recent_txns

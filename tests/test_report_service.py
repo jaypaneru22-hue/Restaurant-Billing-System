@@ -50,6 +50,12 @@ def test_report_charts_empty_database(report_fixture):
     fig_pay = r_svc.plot_payment_methods("light")
     assert isinstance(fig_pay, Figure)
 
+    fig_month = r_svc.plot_monthly_sales("light")
+    assert isinstance(fig_month, Figure)
+
+    fig_staff = r_svc.plot_staff_activity("dark")
+    assert isinstance(fig_staff, Figure)
+
 
 def test_report_charts_with_transactions(report_fixture):
     r_svc, o_svc, b_svc, m_repo = report_fixture

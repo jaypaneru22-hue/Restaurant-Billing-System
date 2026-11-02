@@ -71,6 +71,90 @@ class ShortcutsHelpDialog(ctk.CTkToplevel):
         self.bind("<Escape>", lambda e: self.destroy())
 
 
+class AdminStagePlaceholderFrame(ctk.CTkFrame):
+    """Clean enterprise placeholder explaining module scope and planned execution stage."""
+
+    def __init__(self, master, module_code: str, on_back: Callable, **kwargs):
+        super().__init__(master, **kwargs)
+        palette = theme_manager.get_palette()
+        self.configure(fg_color=palette["bg_primary"])
+
+        STAGE_INFO = {
+            "users": ("👥 Staff & User Management", "Stage 3", "Create, edit, activate/deactivate staff accounts, assign roles, reset passwords, and audit login sessions."),
+            "roles": ("🛡️ Roles & Permissions", "Stage 3", "Fine-grained permissions configuration, RBAC privilege matrix, and role assignment governance."),
+            "restaurant": ("🏢 Restaurant Profile & Branding", "Stage 4", "Business identity settings, address, telephone, GSTIN registration, and receipt header/footer templates."),
+            "billing_cfg": ("💳 Billing, Tax & Payment Config", "Stage 4", "Configurable CGST/SGST tax rates, service charges, discount thresholds, and active payment channels."),
+            "security_audit": ("📜 Security & Audit Logs", "Stage 5", "Comprehensive tamper-evident security audit logging, sensitive action tracking, and staff event logs."),
+            "database": ("💾 Database Backup & Restore", "Stage 5", "Automated SQLite snapshot backups, verified one-click restoration, checksum verification, and retention policy."),
+            "system_health": ("🩺 System Health & Diagnostics", "Stage 5", "SQLite database integrity verification, storage footprint, query latency, and connection diagnostics.")
+        }
+
+        title, stage, description = STAGE_INFO.get(
+            module_code,
+            ("Enterprise Module", "Upcoming Stage", "This module is part of the approved Restaurant Management Platform roadmap.")
+        )
+
+        card = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=12, border_width=1, border_color=palette["border"])
+        card.place(relx=0.5, rely=0.45, anchor="center", relwidth=0.65)
+
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="both", expand=True, padx=32, pady=28)
+
+        # Stage Badge
+        badge = ctk.CTkFrame(inner, fg_color=palette["accent_light"], corner_radius=6)
+        badge.pack(anchor="w", pady=(0, 10))
+        ctk.CTkLabel(
+            badge,
+            text=f"🔒 {stage.upper()} ROADMAP MODULE",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color=palette["accent"]
+        ).pack(padx=10, pady=4)
+
+        # Module Title
+        ctk.CTkLabel(
+            inner,
+            text=title,
+            font=ctk.CTkFont(size=22, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(anchor="w", pady=(0, 6))
+
+        # Description
+        ctk.CTkLabel(
+            inner,
+            text=description,
+            font=ctk.CTkFont(size=12),
+            text_color=palette["text_secondary"],
+            wraplength=520,
+            justify="left"
+        ).pack(anchor="w", pady=(0, 16))
+
+        # Governance Notice Box
+        notice = ctk.CTkFrame(inner, fg_color=palette["bg_secondary"], corner_radius=8, border_width=1, border_color=palette["border"])
+        notice.pack(fill="x", pady=(0, 20))
+        ctk.CTkLabel(
+            notice,
+            text="⚠️ Strictly Gated Workflow: This module will be implemented in its designated stage following explicit user review and approval of the current stage.",
+            font=ctk.CTkFont(size=10),
+            text_color=palette["text_secondary"],
+            wraplength=500,
+            justify="left"
+        ).pack(padx=14, pady=10)
+
+        # Action Buttons
+        btn_box = ctk.CTkFrame(inner, fg_color="transparent")
+        btn_box.pack(fill="x")
+
+        ctk.CTkButton(
+            btn_box,
+            text="← Return to Executive Overview",
+            height=34,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            command=on_back
+        ).pack(side="left")
+
+
 class MainWindow(ctk.CTkFrame):
     """Main application shell containing Blue Navigation Sidebar, Header, and Dynamic Workspace."""
 
@@ -296,20 +380,31 @@ class MainWindow(ctk.CTkFrame):
                 ("profile", "👤 My Profile", "Alt+P"),
             ]
         else:
-            # ADMIN
+            # ADMIN — Complete Enterprise Navigation Suite
             nav_items = [
                 ("dashboard", "📊 Executive Overview", "Alt+D"),
-                ("orders", "➕ Point of Sale (POS)", "Alt+N"),
-                ("menu", "📋 Menu Management", "Alt+M"),
-                ("orders_history", "📜 Order Audit & History", "Alt+O"),
-                ("reports", "📈 Sales Analytics", "Alt+R"),
-                ("profile", "👤 User Profile", "Alt+P"),
+                ("users", "👥 Staff Management", "Stage 3"),
+                ("roles", "🛡️ Roles & Permissions", "Stage 3"),
+                ("restaurant", "🏢 Restaurant Profile", "Stage 4"),
+                ("billing_cfg", "💳 Billing & Tax Settings", "Stage 4"),
+                ("security_audit", "📜 Security & Audit Logs", "Stage 5"),
+                ("database", "💾 Database & Backups", "Stage 5"),
+                ("system_health", "🩺 System Health Monitor", "Stage 5"),
+                ("orders", "🛒 Point of Sale (POS)", "Alt+N"),
+                ("menu", "🍽️ Menu Catalog", "Alt+M"),
+                ("orders_history", "🧾 Order Audit History", "Alt+O"),
+                ("reports", "📈 Reports & Analytics", "Alt+R"),
                 ("settings", "⚙️ System Configuration", "Alt+S"),
             ]
 
-        # Navigation buttons container
-        nav_container = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
-        nav_container.pack(fill="both", expand=True)
+        # Navigation buttons container inside sidebar (Scrollable for comprehensive Admin suite)
+        nav_container = ctk.CTkScrollableFrame(
+            self.sidebar_frame,
+            fg_color="transparent",
+            scrollbar_button_color=palette.get("sidebar_hover", "#245A9B"),
+            scrollbar_button_hover_color=palette.get("sidebar_active", "#2563EB")
+        )
+        nav_container.pack(fill="both", expand=True, padx=2, pady=(0, 4))
 
         for code, label, key_hint in nav_items:
             btn = ctk.CTkButton(
@@ -471,6 +566,12 @@ class MainWindow(ctk.CTkFrame):
             self.current_view = ProfileFrame(self.content_container, initial_tab="profile")
         elif view_name == "settings":
             self.current_view = ProfileFrame(self.content_container, initial_tab="settings")
+        elif view_name in ["users", "roles", "restaurant", "billing_cfg", "security_audit", "database", "system_health"]:
+            self.current_view = AdminStagePlaceholderFrame(
+                self.content_container,
+                module_code=view_name,
+                on_back=lambda: self.navigate_to("dashboard")
+            )
 
         if self.current_view:
             self.current_view.pack(fill="both", expand=True)

@@ -269,6 +269,123 @@ class ReportService:
         fig.tight_layout()
         return fig
 
+    def get_monthly_sales(self, months: int = 6) -> List[Dict[str, Any]]:
+        """Returns monthly sales totals for the last N months directly from bills table."""
+        rows = self.db.fetchall(
+            """SELECT strftime('%Y-%m', b.billed_at) as month_str,
+                      COUNT(b.id) as order_count,
+                      COALESCE(SUM(b.final_total), 0) as total_sales
+               FROM bills b
+               WHERE b.payment_status = 'PAID'
+               GROUP BY month_str
+               ORDER BY month_str ASC
+               LIMIT ?;""",
+            (months,)
+        )
+        return [
+            {
+                "month": r["month_str"],
+                "order_count": int(r["order_count"]),
+                "total_sales": Decimal(str(r["total_sales"])).quantize(Decimal("0.01"))
+            }
+            for r in rows
+        ]
+
+    def plot_monthly_sales(self, theme: str = "dark", months: int = 6) -> Figure:
+        """Renders Monthly Sales Trend bar chart from live database records."""
+        data = self.get_monthly_sales(months)
+        palette = THEME_PALETTES.get(theme, THEME_PALETTES["dark"])
+        fig = Figure(figsize=(5.5, 3.0), dpi=100)
+        ax = fig.add_subplot(111)
+        self._setup_figure_style(fig, ax, theme)
+
+        if not data:
+            ax.text(0.5, 0.5, "No monthly sales data recorded", ha="center", va="center", color=palette["text_secondary"], fontsize=10)
+            ax.set_title("Monthly Sales Trend", fontsize=11, fontweight="bold", pad=10)
+            fig.tight_layout()
+            return fig
+
+        labels = [d["month"] for d in data]
+        values = [float(d["total_sales"]) for d in data]
+        bars = ax.bar(labels, values, color=palette["accent"], width=0.45, edgecolor=palette["border"])
+        ax.set_title(f"Monthly Sales Revenue — Last {months} Mo (₹)", fontsize=11, fontweight="bold", pad=10)
+        ax.grid(axis="y", linestyle="--", alpha=0.25, color=palette["border"])
+
+        for bar in bars:
+            h = bar.get_height()
+            if h > 0:
+                ax.annotate(
+                    f"₹{int(h)}",
+                    xy=(bar.get_x() + bar.get_width() / 2, h),
+                    xytext=(0, 3),
+                    textcoords="offset points",
+                    ha="center", va="bottom",
+                    fontsize=8,
+                    color=palette["text_primary"]
+                )
+
+        fig.tight_layout()
+        return fig
+
+    def get_staff_activity(self) -> List[Dict[str, Any]]:
+        """Returns staff members and their orders handled from SQLite database."""
+        rows = self.db.fetchall(
+            """SELECT u.username, u.full_name, u.role,
+                      COUNT(o.id) as orders_handled,
+                      COALESCE(SUM(b.final_total), 0) as sales_volume
+               FROM users u
+               LEFT JOIN orders o ON u.id = o.user_id
+               LEFT JOIN bills b ON o.id = b.order_id AND b.payment_status = 'PAID'
+               GROUP BY u.id
+               ORDER BY orders_handled DESC;"""
+        )
+        return [
+            {
+                "username": r["username"],
+                "full_name": r["full_name"],
+                "role": r["role"],
+                "orders_handled": int(r["orders_handled"]),
+                "sales_volume": Decimal(str(r["sales_volume"])).quantize(Decimal("0.01"))
+            }
+            for r in rows
+        ]
+
+    def plot_staff_activity(self, theme: str = "dark") -> Figure:
+        """Renders Staff Orders Handled comparison chart from database records."""
+        data = self.get_staff_activity()
+        palette = THEME_PALETTES.get(theme, THEME_PALETTES["dark"])
+        fig = Figure(figsize=(5.5, 3.0), dpi=100)
+        ax = fig.add_subplot(111)
+        self._setup_figure_style(fig, ax, theme)
+
+        if not data:
+            ax.text(0.5, 0.5, "No staff activity records", ha="center", va="center", color=palette["text_secondary"], fontsize=10)
+            ax.set_title("Staff Activity Overview", fontsize=11, fontweight="bold", pad=10)
+            fig.tight_layout()
+            return fig
+
+        names = [f"{d['username']} ({d['role']})" for d in reversed(data)]
+        counts = [d["orders_handled"] for d in reversed(data)]
+
+        bars = ax.barh(names, counts, color=palette["accent"], height=0.45, edgecolor=palette["border"])
+        ax.set_title("Staff Activity (Orders Handled)", fontsize=11, fontweight="bold", pad=10)
+        ax.grid(axis="x", linestyle="--", alpha=0.25, color=palette["border"])
+
+        for bar in bars:
+            w = bar.get_width()
+            ax.annotate(
+                f"{int(w)} orders",
+                xy=(w, bar.get_y() + bar.get_height() / 2),
+                xytext=(5, 0),
+                textcoords="offset points",
+                ha="left", va="center",
+                fontsize=8,
+                color=palette["text_primary"]
+            )
+
+        fig.tight_layout()
+        return fig
+
 
 # Global report service instance
 report_service = ReportService()

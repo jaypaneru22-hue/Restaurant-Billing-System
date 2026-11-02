@@ -1,9 +1,12 @@
 """Role-specific interactive dashboards for Admin, Cashier, and Manager personas."""
 from typing import Callable, Optional, Dict, Any
 import customtkinter as ctk
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 from services.dashboard_service import DashboardService, dashboard_service
 from services.auth_service import AuthService, auth_service
+from services.report_service import report_service
 from ui.theme_manager import theme_manager
 from config.settings import CURRENCY_SYMBOL
 
@@ -33,13 +36,54 @@ class DashboardFrame(ctk.CTkFrame):
         else:
             self.role = "ADMIN"
 
+        # Matplotlib chart tracking
+        self.left_chart_type = "daily"
+        self.right_chart_type = "payment"
+        self.fig_left = None
+        self.fig_right = None
+        self.chart_left_canvas = None
+        self.chart_right_canvas = None
+
         theme_manager.subscribe(self.on_theme_changed)
         self._build_ui()
         self.refresh_data()
 
     def destroy(self):
         theme_manager.unsubscribe(self.on_theme_changed)
+        self._cleanup_charts()
         super().destroy()
+
+    def _cleanup_left_chart(self):
+        if hasattr(self, "chart_left_canvas") and self.chart_left_canvas:
+            try:
+                self.chart_left_canvas.get_tk_widget().destroy()
+            except Exception:
+                pass
+            self.chart_left_canvas = None
+        if hasattr(self, "fig_left") and self.fig_left:
+            try:
+                plt.close(self.fig_left)
+            except Exception:
+                pass
+            self.fig_left = None
+
+    def _cleanup_right_chart(self):
+        if hasattr(self, "chart_right_canvas") and self.chart_right_canvas:
+            try:
+                self.chart_right_canvas.get_tk_widget().destroy()
+            except Exception:
+                pass
+            self.chart_right_canvas = None
+        if hasattr(self, "fig_right") and self.fig_right:
+            try:
+                plt.close(self.fig_right)
+            except Exception:
+                pass
+            self.fig_right = None
+
+    def _cleanup_charts(self):
+        self._cleanup_left_chart()
+        self._cleanup_right_chart()
 
     def on_theme_changed(self, theme_name: str):
         if self.winfo_exists():
@@ -60,11 +104,14 @@ class DashboardFrame(ctk.CTkFrame):
             self._build_admin_dashboard(palette)
 
     # =========================================================================
-    # 1. ADMIN DASHBOARD — COMPLETE EXECUTIVE CONTROL
+    # 1. ADMIN DASHBOARD — COMPLETE EXECUTIVE CONTROL & LIVE TELEMETRY
     # =========================================================================
     def _build_admin_dashboard(self, palette: dict):
+        self.admin_scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.admin_scroll.pack(fill="both", expand=True)
+
         # Header Bar
-        header = ctk.CTkFrame(self, fg_color="transparent")
+        header = ctk.CTkFrame(self.admin_scroll, fg_color="transparent")
         header.pack(fill="x", padx=24, pady=(18, 12))
 
         title_col = ctk.CTkFrame(header, fg_color="transparent")
@@ -72,14 +119,14 @@ class DashboardFrame(ctk.CTkFrame):
 
         ctk.CTkLabel(
             title_col,
-            text="📊 Executive Management Overview",
+            text="🛡️ Admin Operations & Executive Governance",
             font=ctk.CTkFont(size=20, weight="bold"),
             text_color=palette.get("heading", palette["text_primary"])
         ).pack(anchor="w")
 
         ctk.CTkLabel(
             title_col,
-            text="Enterprise governance • Real-time sales velocity, revenue and catalog health",
+            text="Centralized enterprise management • Real-time database telemetry, live sales velocity and audit oversight",
             font=ctk.CTkFont(size=11),
             text_color=palette["text_secondary"]
         ).pack(anchor="w")
@@ -90,8 +137,8 @@ class DashboardFrame(ctk.CTkFrame):
 
         ctk.CTkButton(
             actions_box,
-            text="🔄 Refresh",
-            width=80,
+            text="🔄 Refresh Live Data",
+            width=130,
             height=32,
             font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=palette["bg_card"],
@@ -102,8 +149,8 @@ class DashboardFrame(ctk.CTkFrame):
 
         ctk.CTkButton(
             actions_box,
-            text="📈 Analytics",
-            width=90,
+            text="📈 Full Analytics",
+            width=110,
             height=32,
             font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=palette["bg_card"],
@@ -115,7 +162,7 @@ class DashboardFrame(ctk.CTkFrame):
         ctk.CTkButton(
             actions_box,
             text="➕ New POS Order",
-            width=125,
+            width=135,
             height=32,
             font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=palette["accent"],
@@ -123,30 +170,163 @@ class DashboardFrame(ctk.CTkFrame):
             command=lambda: self.navigate("orders")
         ).pack(side="left", padx=3)
 
-        # 4 Executive KPI Cards
-        kpi_row = ctk.CTkFrame(self, fg_color="transparent")
-        kpi_row.pack(fill="x", padx=24, pady=(0, 14))
-        kpi_row.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="kpi_admin")
+        # ---------------------------------------------------------------------
+        # 7 Executive KPI Cards Grid (2 Rows)
+        # ---------------------------------------------------------------------
+        kpi_grid = ctk.CTkFrame(self.admin_scroll, fg_color="transparent")
+        kpi_grid.pack(fill="x", padx=24, pady=(0, 14))
+        kpi_grid.grid_columnconfigure((0, 1, 2, 3), weight=1, uniform="kpi_admin")
 
-        self.lbl_admin_rev, self.sub_admin_rev = self._create_kpi_card(
-            kpi_row, 0, "💰 Gross Sales (All-Time)", f"{CURRENCY_SYMBOL}0.00", "Total revenue settled", "#3B82F6", palette
+        # Row 0: Total Staff, Active Users, Total Orders, Total Sales
+        self.lbl_admin_staff, self.sub_admin_staff = self._create_kpi_card(
+            kpi_grid, 0, "👥 Total Staff", "0", "Registered staff accounts", "#3B82F6", palette, row=0, pady=(0, 8)
         )
-        self.lbl_admin_today, self.sub_admin_today = self._create_kpi_card(
-            kpi_row, 1, "📅 Today's Revenue", f"{CURRENCY_SYMBOL}0.00", "0 tickets closed today", "#10B981", palette
+        self.lbl_admin_active_users, self.sub_admin_active_users = self._create_kpi_card(
+            kpi_grid, 1, "🟢 Active Users", "0", "Active system accounts", "#10B981", palette, row=0, pady=(0, 8)
+        )
+        self.lbl_admin_total_orders, self.sub_admin_total_orders = self._create_kpi_card(
+            kpi_grid, 2, "📦 Total Orders", "0", "All-time orders placed", "#8B5CF6", palette, row=0, pady=(0, 8)
+        )
+        self.lbl_admin_total_sales, self.sub_admin_total_sales = self._create_kpi_card(
+            kpi_grid, 3, "💰 Total Sales", f"{CURRENCY_SYMBOL}0.00", "Gross settled revenue", "#059669", palette, row=0, pady=(0, 8)
+        )
+
+        # Row 1: Total Transactions, Pending Orders, System Status (columnspan=2)
+        self.lbl_admin_txns, self.sub_admin_txns = self._create_kpi_card(
+            kpi_grid, 0, "🧾 Total Transactions", "0", "Finalized paid bills", "#0284C7", palette, row=1
         )
         self.lbl_admin_pending, self.sub_admin_pending = self._create_kpi_card(
-            kpi_row, 2, "⏳ Active Pending", "0", "Orders awaiting cashier billing", "#F59E0B", palette
+            kpi_grid, 1, "⏳ Pending Orders", "0", "Orders awaiting cashier billing", "#F59E0B", palette, row=1
         )
-        self.lbl_admin_catalog, self.sub_admin_catalog = self._create_kpi_card(
-            kpi_row, 3, "🍽️ Active Catalog", "0 Dishes", "0 total dishes in menu", "#8B5CF6", palette
+        self.lbl_admin_sys_status, self.sub_admin_sys_status = self._create_kpi_card(
+            kpi_grid, 2, "⚡ System Status", "ONLINE • HEALTHY", "SQLite WAL • Real-time DB engine", "#10B981", palette, row=1, columnspan=2
         )
 
+        # For backwards compatibility with any existing reference:
+        self.lbl_admin_rev = self.lbl_admin_total_sales
+        self.sub_admin_rev = self.sub_admin_total_sales
+        self.lbl_admin_today = self.lbl_admin_total_sales
+        self.sub_admin_today = self.sub_admin_total_sales
+        self.lbl_admin_catalog = self.lbl_admin_total_orders
+        self.sub_admin_catalog = self.sub_admin_total_orders
+
+        # ---------------------------------------------------------------------
+        # Live Visual Analytics Charts Section (2 Columns)
+        # ---------------------------------------------------------------------
+        charts_box = ctk.CTkFrame(self.admin_scroll, fg_color="transparent")
+        charts_box.pack(fill="x", padx=24, pady=(0, 16))
+        charts_box.grid_columnconfigure((0, 1), weight=1, uniform="admin_charts")
+
+        # Left Chart Container: Sales Trend (Daily vs Monthly)
+        chart_card_left = ctk.CTkFrame(charts_box, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
+        chart_card_left.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+
+        c_head_left = ctk.CTkFrame(chart_card_left, fg_color="transparent")
+        c_head_left.pack(fill="x", padx=14, pady=(10, 6))
+
+        ctk.CTkLabel(
+            c_head_left,
+            text="📈 Sales Revenue Velocity",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(side="left")
+
+        toggles_left = ctk.CTkFrame(c_head_left, fg_color="transparent")
+        toggles_left.pack(side="right")
+
+        self.btn_chart_daily = ctk.CTkButton(
+            toggles_left,
+            text="Daily (7d)",
+            width=70,
+            height=24,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            command=lambda: self.set_left_chart("daily")
+        )
+        self.btn_chart_daily.pack(side="left", padx=2)
+
+        self.btn_chart_monthly = ctk.CTkButton(
+            toggles_left,
+            text="Monthly (6m)",
+            width=80,
+            height=24,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=palette["bg_secondary"],
+            text_color=palette["text_primary"],
+            hover_color=palette["border"],
+            command=lambda: self.set_left_chart("monthly")
+        )
+        self.btn_chart_monthly.pack(side="left", padx=2)
+
+        self.chart_left_container = ctk.CTkFrame(chart_card_left, fg_color="transparent", height=240)
+        self.chart_left_container.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+        # Right Chart Container: Distribution / Analytics (Payment vs Order Status vs Staff)
+        chart_card_right = ctk.CTkFrame(charts_box, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
+        chart_card_right.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+
+        c_head_right = ctk.CTkFrame(chart_card_right, fg_color="transparent")
+        c_head_right.pack(fill="x", padx=14, pady=(10, 6))
+
+        ctk.CTkLabel(
+            c_head_right,
+            text="📊 Operational Distribution",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(side="left")
+
+        toggles_right = ctk.CTkFrame(c_head_right, fg_color="transparent")
+        toggles_right.pack(side="right")
+
+        self.btn_chart_pay = ctk.CTkButton(
+            toggles_right,
+            text="Payments",
+            width=68,
+            height=24,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            command=lambda: self.set_right_chart("payment")
+        )
+        self.btn_chart_pay.pack(side="left", padx=2)
+
+        self.btn_chart_orders = ctk.CTkButton(
+            toggles_right,
+            text="Orders",
+            width=58,
+            height=24,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=palette["bg_secondary"],
+            text_color=palette["text_primary"],
+            hover_color=palette["border"],
+            command=lambda: self.set_right_chart("orders")
+        )
+        self.btn_chart_orders.pack(side="left", padx=2)
+
+        self.btn_chart_staff = ctk.CTkButton(
+            toggles_right,
+            text="Staff Activity",
+            width=80,
+            height=24,
+            font=ctk.CTkFont(size=10, weight="bold"),
+            fg_color=palette["bg_secondary"],
+            text_color=palette["text_primary"],
+            hover_color=palette["border"],
+            command=lambda: self.set_right_chart("staff")
+        )
+        self.btn_chart_staff.pack(side="left", padx=2)
+
+        self.chart_right_container = ctk.CTkFrame(chart_card_right, fg_color="transparent", height=240)
+        self.chart_right_container.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+
+        # ---------------------------------------------------------------------
         # Split Lower Grid: Left (Transactions 60%), Right (Channel breakdown & Actions 40%)
-        grid_split = ctk.CTkFrame(self, fg_color="transparent")
+        # ---------------------------------------------------------------------
+        grid_split = ctk.CTkFrame(self.admin_scroll, fg_color="transparent")
         grid_split.pack(fill="both", expand=True, padx=24, pady=(0, 16))
         grid_split.grid_columnconfigure(0, weight=3, uniform="admin_split")
         grid_split.grid_columnconfigure(1, weight=2, uniform="admin_split")
-        grid_split.grid_rowconfigure(0, weight=1)
 
         # Left Column: Recent Transactions Table
         card_txns = ctk.CTkFrame(grid_split, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
@@ -157,15 +337,15 @@ class DashboardFrame(ctk.CTkFrame):
 
         ctk.CTkLabel(
             head_txns,
-            text="Recent Restaurant Transactions",
+            text="Recent Restaurant Transactions (Audit Trail)",
             font=ctk.CTkFont(size=14, weight="bold"),
             text_color=palette.get("heading", palette["text_primary"])
         ).pack(side="left")
 
         ctk.CTkButton(
             head_txns,
-            text="View Audit Log →",
-            width=110,
+            text="View Full Orders →",
+            width=120,
             height=24,
             font=ctk.CTkFont(size=10, weight="bold"),
             fg_color="transparent",
@@ -174,7 +354,7 @@ class DashboardFrame(ctk.CTkFrame):
             command=lambda: self.navigate("orders_history")
         ).pack(side="right")
 
-        self.admin_txn_scroll = ctk.CTkScrollableFrame(card_txns, fg_color="transparent")
+        self.admin_txn_scroll = ctk.CTkScrollableFrame(card_txns, fg_color="transparent", height=220)
         self.admin_txn_scroll.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         # Right Column: Payment Channels & Admin Shortcuts
@@ -212,7 +392,7 @@ class DashboardFrame(ctk.CTkFrame):
 
         tiles = [
             ("➕ Point of Sale", "orders", palette["accent"]),
-            ("📋 Menu Catalog", "menu", palette["text_primary"]),
+            ("🍽️ Menu Catalog", "menu", palette["text_primary"]),
             ("📈 Sales Reports", "reports", palette["accent"]),
             ("⚙️ System Settings", "settings", palette["text_secondary"])
         ]
@@ -230,6 +410,71 @@ class DashboardFrame(ctk.CTkFrame):
                 command=lambda t=nav_target: self.navigate(t)
             )
             btn.grid(row=row, column=col, padx=4, pady=4, sticky="ew")
+
+    def set_left_chart(self, chart_type: str):
+        self.left_chart_type = chart_type
+        palette = theme_manager.get_palette()
+        if hasattr(self, "btn_chart_daily") and hasattr(self, "btn_chart_monthly"):
+            if chart_type == "daily":
+                self.btn_chart_daily.configure(fg_color=palette["accent"], text_color="#FFFFFF")
+                self.btn_chart_monthly.configure(fg_color=palette["bg_secondary"], text_color=palette["text_primary"])
+            else:
+                self.btn_chart_daily.configure(fg_color=palette["bg_secondary"], text_color=palette["text_primary"])
+                self.btn_chart_monthly.configure(fg_color=palette["accent"], text_color="#FFFFFF")
+        self._render_admin_charts()
+
+    def set_right_chart(self, chart_type: str):
+        self.right_chart_type = chart_type
+        palette = theme_manager.get_palette()
+        if hasattr(self, "btn_chart_pay") and hasattr(self, "btn_chart_orders") and hasattr(self, "btn_chart_staff"):
+            self.btn_chart_pay.configure(
+                fg_color=palette["accent"] if chart_type == "payment" else palette["bg_secondary"],
+                text_color="#FFFFFF" if chart_type == "payment" else palette["text_primary"]
+            )
+            self.btn_chart_orders.configure(
+                fg_color=palette["accent"] if chart_type == "orders" else palette["bg_secondary"],
+                text_color="#FFFFFF" if chart_type == "orders" else palette["text_primary"]
+            )
+            self.btn_chart_staff.configure(
+                fg_color=palette["accent"] if chart_type == "staff" else palette["bg_secondary"],
+                text_color="#FFFFFF" if chart_type == "staff" else palette["text_primary"]
+            )
+        self._render_admin_charts()
+
+    def _render_admin_charts(self):
+        if not hasattr(self, "chart_left_container") or not hasattr(self, "chart_right_container"):
+            return
+        theme = theme_manager.get_current_theme()
+
+        # Render Left Chart
+        self._cleanup_left_chart()
+        try:
+            if self.left_chart_type == "daily":
+                self.fig_left = report_service.plot_daily_sales(theme=theme, days=7)
+            else:
+                self.fig_left = report_service.plot_monthly_sales(theme=theme, months=6)
+
+            self.chart_left_canvas = FigureCanvasTkAgg(self.fig_left, master=self.chart_left_container)
+            self.chart_left_canvas.draw()
+            self.chart_left_canvas.get_tk_widget().pack(fill="both", expand=True)
+        except Exception:
+            pass
+
+        # Render Right Chart
+        self._cleanup_right_chart()
+        try:
+            if self.right_chart_type == "payment":
+                self.fig_right = report_service.plot_payment_methods(theme=theme)
+            elif self.right_chart_type == "orders":
+                self.fig_right = report_service.plot_order_status(theme=theme)
+            else:
+                self.fig_right = report_service.plot_staff_activity(theme=theme)
+
+            self.chart_right_canvas = FigureCanvasTkAgg(self.fig_right, master=self.chart_right_container)
+            self.chart_right_canvas.draw()
+            self.chart_right_canvas.get_tk_widget().pack(fill="both", expand=True)
+        except Exception:
+            pass
 
     # =========================================================================
     # 2. CASHIER DASHBOARD — SIMPLE, FAST & FOCUSED
@@ -468,9 +713,21 @@ class DashboardFrame(ctk.CTkFrame):
     # =========================================================================
     # HELPER: REUSABLE KPI CARD
     # =========================================================================
-    def _create_kpi_card(self, parent, col: int, title: str, default_val: str, subtitle: str, accent_color: str, palette: dict):
+    def _create_kpi_card(
+        self,
+        parent,
+        col: int,
+        title: str,
+        default_val: str,
+        subtitle: str,
+        accent_color: str,
+        palette: dict,
+        row: int = 0,
+        columnspan: int = 1,
+        pady: tuple = (0, 0)
+    ):
         card = ctk.CTkFrame(parent, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
-        card.grid(row=0, column=col, padx=5, sticky="nsew")
+        card.grid(row=row, column=col, columnspan=columnspan, padx=5, pady=pady, sticky="nsew")
 
         # Top Accent Strip
         accent_strip = ctk.CTkFrame(card, height=4, fg_color=accent_color, corner_radius=0)
@@ -560,12 +817,30 @@ class DashboardFrame(ctk.CTkFrame):
         else:
             # ADMIN
             metrics = self.dashboard_svc.get_admin_metrics()
-            if hasattr(self, "lbl_admin_rev"):
-                self.lbl_admin_rev.configure(text=f"{CURRENCY_SYMBOL}{metrics['total_revenue']}")
-                self.lbl_admin_today.configure(text=f"{CURRENCY_SYMBOL}{metrics['today_sales']}")
-                self.sub_admin_today.configure(text=f"{metrics['today_orders']} orders settled today")
-                self.lbl_admin_pending.configure(text=str(metrics["pending_count"]))
-                self.lbl_admin_catalog.configure(text=f"{metrics['active_dishes']} / {metrics['total_dishes']}")
+            if hasattr(self, "lbl_admin_staff"):
+                self.lbl_admin_staff.configure(text=str(metrics["total_staff"]))
+                self.sub_admin_staff.configure(text=f"{metrics['total_staff']} accounts registered")
+            if hasattr(self, "lbl_admin_active_users"):
+                self.lbl_admin_active_users.configure(text=str(metrics["active_users"]))
+                self.sub_admin_active_users.configure(text=f"{metrics['active_users']} active in system")
+            if hasattr(self, "lbl_admin_total_orders"):
+                self.lbl_admin_total_orders.configure(text=str(metrics["total_orders"]))
+                self.sub_admin_total_orders.configure(text=f"{metrics['total_orders']} all-time orders")
+            if hasattr(self, "lbl_admin_total_sales"):
+                self.lbl_admin_total_sales.configure(text=f"{CURRENCY_SYMBOL}{metrics['total_sales']}")
+                self.sub_admin_total_sales.configure(text="Gross settled revenue")
+            if hasattr(self, "lbl_admin_txns"):
+                self.lbl_admin_txns.configure(text=str(metrics["total_transactions"]))
+                self.sub_admin_txns.configure(text=f"{metrics['total_transactions']} paid receipts")
+            if hasattr(self, "lbl_admin_pending"):
+                self.lbl_admin_pending.configure(text=str(metrics["pending_orders"]))
+                self.sub_admin_pending.configure(text=f"{metrics['pending_orders']} awaiting settlement")
+            if hasattr(self, "lbl_admin_sys_status"):
+                self.lbl_admin_sys_status.configure(text=metrics["system_status"])
+                self.sub_admin_sys_status.configure(text="SQLite engine operational • 0 errors")
+
+            # Redraw Live Visual Charts
+            self._render_admin_charts()
 
             # Update Channel Breakdown
             if hasattr(self, "box_channels"):

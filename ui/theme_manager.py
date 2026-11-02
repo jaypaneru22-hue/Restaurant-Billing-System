@@ -18,6 +18,9 @@ class ThemeManager:
     def current_theme(self) -> str:
         return self._current_theme
 
+    def get_current_theme(self) -> str:
+        return self._current_theme
+
     def get_palette(self) -> dict:
         """Returns the color dictionary for the active theme."""
         return THEME_PALETTES.get(self._current_theme, THEME_PALETTES["light"])

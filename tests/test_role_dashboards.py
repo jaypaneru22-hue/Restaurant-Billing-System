@@ -85,6 +85,20 @@ def test_admin_dashboard_metrics(role_fixture):
     dash_svc = role_fixture["dash_svc"]
     metrics = dash_svc.get_admin_metrics()
 
+    # 7 Mandatory Admin KPIs
+    assert "total_staff" in metrics
+    assert "active_users" in metrics
+    assert "total_orders" in metrics
+    assert "total_sales" in metrics
+    assert "total_transactions" in metrics
+    assert "pending_orders" in metrics
+    assert "system_status" in metrics
+    assert metrics["total_staff"] >= 2
+    assert metrics["active_users"] >= 2
+    assert isinstance(metrics["total_sales"], Decimal)
+    assert metrics["system_status"] in ["ONLINE • HEALTHY", "DEGRADED"]
+
+    # Backwards compatibility & operational fields
     assert "total_revenue" in metrics
     assert "today_sales" in metrics
     assert "active_dishes" in metrics
