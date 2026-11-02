@@ -20,8 +20,11 @@ data/*.db
 tests/*.db
 data/backups/
 data/receipts/
+data/exports/
+data/.remember_staff.json
 
 # Logs
+logs/
 logs/*.log
 *.log
 

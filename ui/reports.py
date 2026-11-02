@@ -49,6 +49,14 @@ class ReportsFrame(ctk.CTkFrame):
             text_color=palette["text_secondary"]
         ).pack(anchor="w")
 
+        self.lbl_export_status = ctk.CTkLabel(
+            title_box,
+            text="",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=palette["success"]
+        )
+        self.lbl_export_status.pack(anchor="w", pady=(2, 0))
+
         controls = ctk.CTkFrame(header, fg_color="transparent")
         controls.pack(side="right")
 
@@ -61,6 +69,18 @@ class ReportsFrame(ctk.CTkFrame):
         )
         self.period_seg.set("7 Days")
         self.period_seg.pack(side="left", padx=(0, 10))
+
+        export_btn = ctk.CTkButton(
+            controls,
+            text="📥 Export Sales CSV",
+            width=140,
+            height=32,
+            fg_color=palette["bg_card"],
+            hover_color=palette["bg_secondary"],
+            text_color=palette["text_primary"],
+            command=self._handle_export_csv
+        )
+        export_btn.pack(side="left", padx=(0, 6))
 
         refresh_btn = ctk.CTkButton(
             controls,
@@ -91,6 +111,56 @@ class ReportsFrame(ctk.CTkFrame):
 
         self.card_pay = ctk.CTkFrame(self.charts_container, fg_color=palette["bg_card"], corner_radius=12, border_width=1, border_color=palette["border"])
         self.card_pay.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
+
+    def _handle_export_csv(self):
+        import csv
+        from datetime import datetime, timedelta
+        from config.settings import DATA_DIR
+        from database.db import db
+        palette = theme_manager.get_palette()
+
+        exports_dir = DATA_DIR / "exports"
+        exports_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        export_file = exports_dir / f"sales_report_{ts}.csv"
+
+        start_date = (datetime.now().date() - timedelta(days=self.current_days - 1)).isoformat()
+
+        try:
+            rows = db.fetchall(
+                """SELECT b.bill_number, b.final_total, b.tax_amount, b.discount_amount,
+                          b.payment_method, b.billed_at, o.order_number, o.table_number, o.customer_name
+                   FROM bills b
+                   JOIN orders o ON b.order_id = o.id
+                   WHERE DATE(b.billed_at) >= DATE(?)
+                   ORDER BY b.id DESC;""",
+                (start_date,)
+            )
+
+            with open(export_file, mode="w", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    "Bill Number", "Order Number", "Table", "Customer",
+                    "Payment Method", "Discount (Rs)", "Tax (Rs)", "Total Amount (Rs)", "Timestamp"
+                ])
+                for r in rows:
+                    writer.writerow([
+                        r["bill_number"], r["order_number"], r["table_number"] or "Takeaway",
+                        r["customer_name"] or "Guest", r["payment_method"],
+                        r["discount_amount"], r["tax_amount"], r["final_total"], r["billed_at"]
+                    ])
+
+            db.execute(
+                """INSERT INTO audit_logs (username, action, module, details)
+                   VALUES ('Admin', 'EXPORT_SALES_CSV', 'REPORTS', ?);""",
+                (f"Exported {len(rows)} sales records ({self.current_days}D) to {export_file.name}",)
+            )
+
+            if hasattr(self, "lbl_export_status"):
+                self.lbl_export_status.configure(text=f"✓ Exported {len(rows)} records to {export_file.name}", text_color=palette["success"])
+        except Exception as e:
+            if hasattr(self, "lbl_export_status"):
+                self.lbl_export_status.configure(text=f"Export error: {e}", text_color=palette["danger"])
 
     def _on_period_changed(self, value: str):
         days_map = {"7 Days": 7, "14 Days": 14, "30 Days": 30}

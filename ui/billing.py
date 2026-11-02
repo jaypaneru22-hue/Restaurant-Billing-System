@@ -228,6 +228,18 @@ class BillingDialog(ctk.CTkToplevel):
         )
         self.btn_cancel.pack(side="left")
 
+        self.btn_split = ctk.CTkButton(
+            btn_bar,
+            text="✂️ Split Bill",
+            width=110,
+            height=34,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette.get("accent_secondary", palette["accent"]),
+            hover_color=palette["accent_hover"],
+            command=self._handle_split_bill
+        )
+        self.btn_split.pack(side="left", padx=(8, 0))
+
         self.btn_confirm = ctk.CTkButton(
             btn_bar,
             text="Confirm Payment & Settle Bill 💳",
@@ -331,7 +343,8 @@ class BillingDialog(ctk.CTkToplevel):
         t_box.pack(side="left", fill="x", expand=True, padx=(4, 0))
         ctk.CTkLabel(t_box, text="GST Tax (%):", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette.get("form_label", palette["text_secondary"])).pack(anchor="w")
         self.entry_tax = ctk.CTkEntry(t_box, height=26, font=ctk.CTkFont(size=11))
-        self.entry_tax.insert(0, str(DEFAULT_TAX_RATE))
+        initial_tax = self.billing_svc.get_configured_tax_rate() if hasattr(self.billing_svc, "get_configured_tax_rate") else DEFAULT_TAX_RATE
+        self.entry_tax.insert(0, str(initial_tax))
         self.entry_tax.pack(fill="x", pady=(1, 0))
         self.entry_tax.bind("<KeyRelease>", lambda e: self._recalculate())
 
@@ -648,3 +661,47 @@ class BillingDialog(ctk.CTkToplevel):
         self.destroy()
         ReceiptDialog(self.master, receipt_text)
         self.on_bill_completed(self.order.id)
+
+    def _handle_split_bill(self):
+        """Opens equal and custom party split settlement modal."""
+        from models.bill import Bill
+        from ui.split_billing import SplitBillingDialog
+        disc_str = self.entry_discount.get().strip() or "0"
+        tax_str = self.entry_tax.get().strip() or "5.0"
+        subtotal = sum((it.line_total for it in self.order.items), Decimal("0.00"))
+        breakdown = self.billing_svc.calculate_bill_breakdown(
+            subtotal=subtotal,
+            discount_percent=disc_str,
+            tax_rate=tax_str
+        )
+        temp_bill = Bill(
+            id=0,
+            bill_number=f"BILL-{self.order.order_number}",
+            order_id=self.order.id,
+            subtotal=breakdown["subtotal"],
+            tax_rate=breakdown["tax_rate"],
+            tax_amount=breakdown["tax_amount"],
+            discount_percent=breakdown["discount_percent"],
+            discount_amount=breakdown["discount_amount"],
+            final_total=breakdown["final_total"],
+            payment_method="SPLIT",
+            payment_status="PAID",
+            billed_at=""
+        )
+
+        def _on_split_done(shares):
+            ok, msg, bill = self.billing_svc.finalize_bill(
+                order_id=self.order.id,
+                payment_method="SPLIT",
+                discount_percent_input=disc_str,
+                tax_rate_input=tax_str
+            )
+            if ok and bill:
+                receipt_text = self.billing_svc.format_receipt_text(bill, self.order)
+                self.destroy()
+                ReceiptDialog(self.master, receipt_text)
+                self.on_bill_completed(self.order.id)
+            else:
+                self.lbl_error.configure(text=msg)
+
+        SplitBillingDialog(self, bill=temp_bill, order=self.order, on_settled=_on_split_done)

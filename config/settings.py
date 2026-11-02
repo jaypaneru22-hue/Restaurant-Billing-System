@@ -36,10 +36,66 @@ MAX_DISCOUNT_PERCENT = Decimal("50.0")
 SUPPORTED_THEMES = ["light", "dark"]
 DEFAULT_THEME = "light"
 
-# Color Palettes for High-Contrast Modern Ergonomics (Part B Design Direction: Blue Sidebar + White Workspace)
+# Color Palettes for High-Contrast Modern Ergonomics (Concept B: Midnight Obsidian - Dribbble SaaS Reference)
 THEME_PALETTES = {
+    "dark": {
+        # Midnight Obsidian Dark Mode (Exact Design System)
+        "app_bg": "#0B0B12",
+        "bg_primary": "#111118",
+        "bg_secondary": "#171720",
+        "bg_card": "#171720",
+        "bg_card_elevated": "#1D1D29",
+        "bg_card_subtle": "#171720",
+
+        # Sidebar (Deep Obsidian Charcoal)
+        "sidebar_bg": "#101019",
+        "sidebar_secondary": "#171720",
+        "sidebar_hover": "#1D1D29",
+        "sidebar_active": "#6657F5",
+        "sidebar_text": "#F5F5F7",
+        "sidebar_text_muted": "#A1A1B5",
+        "sidebar_border": "#292938",
+
+        # Header Bar
+        "header_bg": "#111118",
+        "header_text": "#F5F5F7",
+        "header_border": "#292938",
+
+        # Typography (Crisp White & Muted Slate - High Contrast)
+        "heading": "#FFFFFF",
+        "section_heading": "#F5F5F7",
+        "form_label": "#F5F5F7",
+        "body": "#F5F5F7",
+        "text_primary": "#F5F5F7",
+        "text_secondary": "#A1A1B5",
+        "text_muted": "#71718A",
+
+        # Accents & Interactive (Electric Violet & Purple Accents)
+        "accent": "#6657F5",
+        "accent_hover": "#5546E8",
+        "accent_light": "#1D1D29",
+        "accent_secondary": "#8B5CF6",
+        "electric_blue": "#38BDF8",
+
+        # Status & Quality Feedback
+        "success": "#22C55E",
+        "success_light": "#052E16",
+        "warning": "#F59E0B",
+        "warning_light": "#451A03",
+        "danger": "#EF4444",
+        "danger_light": "#450A0A",
+        "border": "#292938",
+    },
     "light": {
-        # Sidebar (Deep Blue / Navy)
+        # Light Mode Counterpart (Deep Navy Sidebar + Pure White Workspace)
+        "app_bg": "#F8FAFC",
+        "bg_primary": "#FFFFFF",
+        "bg_secondary": "#F8FAFC",
+        "bg_card": "#FFFFFF",
+        "bg_card_elevated": "#FFFFFF",
+        "bg_card_subtle": "#F1F5F9",
+
+        # Sidebar (Deep Navy)
         "sidebar_bg": "#173B70",
         "sidebar_secondary": "#245A9B",
         "sidebar_hover": "#245A9B",
@@ -53,25 +109,21 @@ THEME_PALETTES = {
         "header_text": "#173B70",
         "header_border": "#E2E8F0",
 
-        # Workspace & Surfaces (Clean White + Light Grey Sections)
-        "bg_primary": "#FFFFFF",
-        "bg_secondary": "#F8FAFC",
-        "bg_card": "#FFFFFF",
-        "bg_card_subtle": "#F1F5F9",
-
         # Typography (High Contrast Navy & Slate)
-        "heading": "#173B70",            # Main page headings: dark navy
-        "section_heading": "#1E293B",    # Section headings: dark readable slate
-        "form_label": "#334155",         # Form labels: readable dark grey
-        "body": "#334155",               # Body text: dark slate
-        "text_primary": "#1E293B",       # Main text: dark slate
-        "text_secondary": "#64748B",     # Secondary text: muted slate
-        "text_muted": "#94A3B8",         # Subtle hints & placeholders
+        "heading": "#173B70",
+        "section_heading": "#1E293B",
+        "form_label": "#334155",
+        "body": "#334155",
+        "text_primary": "#1E293B",
+        "text_secondary": "#64748B",
+        "text_muted": "#94A3B8",
 
-        # Brand Accents & Interactive Elements
+        # Accents & Interactive
         "accent": "#2563EB",
         "accent_hover": "#1D4ED8",
         "accent_light": "#EFF6FF",
+        "accent_secondary": "#7C3AED",
+        "electric_blue": "#0284C7",
 
         # Status & Quality Feedback
         "success": "#16A34A",
@@ -81,50 +133,6 @@ THEME_PALETTES = {
         "danger": "#DC2626",
         "danger_light": "#FEE2E2",
         "border": "#E2E8F0",
-    },
-    "dark": {
-        # Sidebar (Deep Slate Navy)
-        "sidebar_bg": "#0B192C",
-        "sidebar_secondary": "#1E3E62",
-        "sidebar_hover": "#1E3E62",
-        "sidebar_active": "#2563EB",
-        "sidebar_text": "#FFFFFF",
-        "sidebar_text_muted": "#94A3B8",
-        "sidebar_border": "#1E293B",
-
-        # Header Bar
-        "header_bg": "#1E293B",
-        "header_text": "#F8FAFC",
-        "header_border": "#334155",
-
-        # Workspace & Surfaces
-        "bg_primary": "#0F172A",
-        "bg_secondary": "#1E293B",
-        "bg_card": "#1E293B",
-        "bg_card_subtle": "#253347",
-
-        # Typography (High Contrast for Dark Mode)
-        "heading": "#F8FAFC",            # Main page headings: crisp white/slate
-        "section_heading": "#F1F5F9",    # Section headings: light slate
-        "form_label": "#E2E8F0",         # Form labels: light grey
-        "body": "#E2E8F0",               # Body text: light grey
-        "text_primary": "#F8FAFC",       # Main text
-        "text_secondary": "#94A3B8",     # Secondary text
-        "text_muted": "#64748B",
-
-        # Brand Accents & Interactive Elements
-        "accent": "#3B82F6",
-        "accent_hover": "#2563EB",
-        "accent_light": "#1E3E62",
-
-        # Status & Quality Feedback
-        "success": "#10B981",
-        "success_light": "#064E3B",
-        "warning": "#F59E0B",
-        "warning_light": "#78350F",
-        "danger": "#EF4444",
-        "danger_light": "#7F1D1D",
-        "border": "#334155",
     }
 }
 
@@ -138,7 +146,8 @@ VALID_ORDER_STATUSES = [ORDER_STATUS_PENDING, ORDER_STATUS_COMPLETED, ORDER_STAT
 PAYMENT_CASH = "CASH"
 PAYMENT_CARD = "CARD"
 PAYMENT_UPI = "UPI"
-SUPPORTED_PAYMENT_METHODS = [PAYMENT_CASH, PAYMENT_CARD, PAYMENT_UPI]
+PAYMENT_SPLIT = "SPLIT"
+SUPPORTED_PAYMENT_METHODS = [PAYMENT_CASH, PAYMENT_CARD, PAYMENT_UPI, PAYMENT_SPLIT]
 
 # Menu Categories
 DEFAULT_CATEGORIES = [

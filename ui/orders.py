@@ -236,7 +236,7 @@ class NewOrderFrame(ctk.CTkFrame):
 
         self.btn_save_pending = ctk.CTkButton(
             btn_row,
-            text="Save Pending ⏳",
+            text="💾 Save Bill",
             height=38,
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color=palette["bg_card"],
@@ -249,7 +249,7 @@ class NewOrderFrame(ctk.CTkFrame):
 
         self.btn_bill = ctk.CTkButton(
             btn_row,
-            text="Proceed to Payment 💳",
+            text="Proceed Bill 💳",
             height=38,
             font=ctk.CTkFont(size=13, weight="bold"),
             fg_color=palette["accent"],

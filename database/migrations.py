@@ -182,11 +182,94 @@ def run_migrations(conn: sqlite3.Connection) -> None:
         customer_name TEXT DEFAULT 'Guest',
         table_number TEXT,
         rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        nps_score INTEGER DEFAULT 9,
+        feedback_status TEXT DEFAULT 'RESOLVED',
         comment TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (order_id) REFERENCES orders(id)
     );
     """)
+
+    # 7. Restaurant Floor & Table Management (Phase E)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS restaurant_tables (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_number TEXT UNIQUE NOT NULL,
+        zone TEXT NOT NULL DEFAULT 'Main Dining',
+        capacity INTEGER NOT NULL DEFAULT 4,
+        status TEXT NOT NULL DEFAULT 'VACANT',
+        active_order_id INTEGER,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (active_order_id) REFERENCES orders(id)
+    );
+    """)
+
+    cursor.execute("SELECT COUNT(*) FROM restaurant_tables;")
+    if cursor.fetchone()[0] == 0:
+        default_tables = [
+            ("T-1", "Main Dining", 4, "VACANT"),
+            ("T-2", "Main Dining", 4, "VACANT"),
+            ("T-3", "Main Dining", 2, "VACANT"),
+            ("T-4", "Main Dining", 6, "VACANT"),
+            ("P-1", "Patio Garden", 4, "VACANT"),
+            ("P-2", "Patio Garden", 4, "VACANT"),
+            ("F-1", "Family Section", 8, "VACANT"),
+            ("F-2", "Family Section", 6, "VACANT"),
+            ("C-1", "Counter / Bar", 2, "VACANT"),
+            ("C-2", "Counter / Bar", 2, "VACANT")
+        ]
+        cursor.executemany(
+            """INSERT INTO restaurant_tables (table_number, zone, capacity, status)
+               VALUES (?, ?, ?, ?);""",
+            default_tables
+        )
+
+    # 8. Ensure All 5 Roles Exist (Admin, Manager, Cashier, Chef, Customer)
+    existing_roles = {r[0] for r in cursor.execute("SELECT role FROM users;").fetchall()}
+    if "CHEF" not in existing_roles:
+        chef_hash = hash_password("Chef@123")
+        cursor.execute(
+            """INSERT INTO users (username, password_hash, full_name, role, is_active)
+               VALUES ('chef1', ?, 'Executive Head Chef (Vikram)', 'CHEF', 1);""",
+            (chef_hash,)
+        )
+        c_id = cursor.lastrowid
+        cursor.execute("INSERT INTO user_settings (user_id, theme, currency) VALUES (?, 'dark', '₹');", (c_id,))
+
+    if "CUSTOMER" not in existing_roles:
+        cust_hash = hash_password("Customer@123")
+        cursor.execute(
+            """INSERT INTO users (username, password_hash, full_name, role, is_active)
+               VALUES ('customer1', ?, 'Guest Diner (Ananya Roy)', 'CUSTOMER', 1);""",
+            (cust_hash,)
+        )
+        cu_id = cursor.lastrowid
+        cursor.execute("INSERT INTO user_settings (user_id, theme, currency) VALUES (?, 'dark', '₹');", (cu_id,))
+
+    if "MANAGER" not in existing_roles:
+        mgr_hash = hash_password("Manager@123")
+        cursor.execute(
+            """INSERT INTO users (username, password_hash, full_name, role, is_active)
+               VALUES ('manager1', ?, 'Operations Floor Manager', 'MANAGER', 1);""",
+            (mgr_hash,)
+        )
+        m_id = cursor.lastrowid
+        cursor.execute("INSERT INTO user_settings (user_id, theme, currency) VALUES (?, 'dark', '₹');", (m_id,))
+
+    cursor.execute("SELECT COUNT(*) FROM customer_feedback;")
+    if cursor.fetchone()[0] == 0:
+        feedbacks = [
+            (None, "Aarav Sharma", "Table 4", 5, "Outstanding butter chicken and quick counter service! Will visit again."),
+            (None, "Priya Nair", "Table 2", 5, "Paneer tikka was exceptionally fresh and smoky. Loved the service."),
+            (None, "Rohan Verma", "Table 7", 4, "Great food taste and neat billing receipt. Garlic naan was very soft."),
+            (None, "Ananya Sen", "Takeaway", 5, "Fast takeaway packing and authentic Biryani aroma. 5 stars!"),
+            (None, "Vikram Malhotra", "Table 1", 4, "Crispy veg spring rolls and refreshing mint cooler. Friendly staff."),
+        ]
+        cursor.executemany(
+            """INSERT INTO customer_feedback (order_id, customer_name, table_number, rating, comment)
+               VALUES (?, ?, ?, ?, ?);""",
+            feedbacks
+        )
 
     conn.commit()
 

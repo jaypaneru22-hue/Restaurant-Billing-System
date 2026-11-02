@@ -80,6 +80,18 @@ CREATE TABLE IF NOT EXISTS bills (
     FOREIGN KEY (order_id) REFERENCES orders(id)
 );
 
+-- Restaurant tables and floor layout
+CREATE TABLE IF NOT EXISTS restaurant_tables (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    table_number TEXT UNIQUE NOT NULL,
+    zone TEXT NOT NULL DEFAULT 'Main Dining',
+    capacity INTEGER NOT NULL DEFAULT 4,
+    status TEXT NOT NULL DEFAULT 'VACANT',
+    active_order_id INTEGER,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (active_order_id) REFERENCES orders(id)
+);
+
 -- Performance and reporting indexes
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);

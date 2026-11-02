@@ -54,6 +54,34 @@ class AuthService:
         logger.info(f"Successful login for user '{username}' (role: {user.role})")
         return True, "Login successful.", user
 
+    def register_customer(self, username: str, password: str, full_name: str) -> Tuple[bool, str, Optional[User]]:
+        """Registers a new dining customer and establishes active session."""
+        valid_user, err_msg = validate_username(username)
+        if not valid_user:
+            return False, err_msg, None
+
+        if not password or len(password.strip()) < 6:
+            return False, "Password must be at least 6 characters.", None
+
+        if not full_name or not full_name.strip():
+            return False, "Full name cannot be empty.", None
+
+        existing = self.user_repo.get_by_username(username.strip())
+        if existing:
+            return False, "Username is already registered. Please choose another or sign in.", None
+
+        from utils.security import hash_password
+        pwd_hash = hash_password(password.strip())
+        user = self.user_repo.create(
+            username=username.strip(),
+            password_hash=pwd_hash,
+            full_name=full_name.strip(),
+            role="CUSTOMER"
+        )
+        self._current_user = user
+        logger.info(f"New customer registered: '{username}' (id={user.id})")
+        return True, "Customer registration successful.", user
+
     def logout(self) -> None:
         """Clears active user session."""
         if self._current_user:

@@ -14,6 +14,15 @@ from ui.roles import RolesPermissionsFrame
 from ui.settings_views import RestaurantSettingsFrame, BillingTaxSettingsFrame
 from ui.audit import SecurityAuditFrame
 from ui.maintenance import DatabaseBackupFrame, SystemHealthFrame
+from ui.manager_active_orders import ManagerActiveOrdersFrame
+from ui.food_availability import FoodAvailabilityFrame
+from ui.staff_activity import StaffActivityFrame
+from ui.feedback import CustomerFeedbackFrame
+from ui.shift_monitoring import ShiftMonitoringFrame
+from ui.shift_summary import ShiftSummaryFrame
+from ui.chef_kds import ChefKDSFrame
+from ui.table_management import TableManagementFrame
+from ui.customer_portal import CustomerPortalFrame
 from services.auth_service import AuthService, auth_service
 from services.billing_service import BillingService, billing_service
 from services.order_service import OrderService, order_service
@@ -91,7 +100,8 @@ class MainWindow(ctk.CTkFrame):
         theme_manager.subscribe(self.on_theme_changed)
         self._build_ui()
         self._bind_keyboard_shortcuts()
-        self.navigate_to("dashboard")
+        initial_route = "dashboard"
+        self.navigate_to(initial_route)
 
     def destroy(self):
         theme_manager.unsubscribe(self.on_theme_changed)
@@ -102,7 +112,7 @@ class MainWindow(ctk.CTkFrame):
             palette = theme_manager.get_palette()
             self.configure(fg_color=palette["bg_primary"])
             self.header_frame.configure(fg_color=palette.get("header_bg", palette["bg_card"]), border_color=palette.get("header_border", palette["border"]))
-            self.sidebar_frame.configure(fg_color=palette.get("sidebar_bg", "#173B70"), border_color=palette.get("sidebar_border", palette["border"]))
+            self.sidebar_frame.configure(fg_color=palette.get("sidebar_bg", "#09090E"), border_color=palette.get("sidebar_border", palette["border"]))
             self.status_bar.configure(fg_color=palette["bg_secondary"], border_color=palette["border"])
             self.theme_btn.configure(
                 text="🌙 Dark Mode" if theme_name == "light" else "☀️ Light Mode",
@@ -110,6 +120,21 @@ class MainWindow(ctk.CTkFrame):
                 text_color=palette["accent"]
             )
             self._update_nav_button_styles()
+            self._update_role_pill(palette)
+
+    def _update_role_pill(self, palette: dict):
+        if hasattr(self, "role_pill") and hasattr(self, "role_pill_lbl"):
+            is_dark = (theme_manager.current_theme == "dark")
+            role_colors = {
+                "ADMIN": ("#2E1065", "#C4B5FD") if is_dark else ("#EDE9FE", "#6D28D9"),
+                "MANAGER": ("#451A03", "#FCD34D") if is_dark else ("#FEF3C7", "#B45309"),
+                "CASHIER": ("#052E16", "#6EE7B7") if is_dark else ("#DCFCE7", "#15803D"),
+                "CHEF": ("#1E1B4B", "#93C5FD") if is_dark else ("#DBEAFE", "#1D4ED8"),
+                "CUSTOMER": ("#042F2E", "#5EEAD4") if is_dark else ("#CCFBF1", "#0F766E"),
+            }
+            bg_col, txt_col = role_colors.get(self.user_role, ("#1E1E2A", "#F5F5F7") if is_dark else ("#F1F5F9", "#334155"))
+            self.role_pill.configure(fg_color=bg_col)
+            self.role_pill_lbl.configure(text_color=txt_col)
 
     def _build_ui(self):
         palette = theme_manager.get_palette()
@@ -171,20 +196,24 @@ class MainWindow(ctk.CTkFrame):
         self.theme_btn.pack(side="left", padx=4)
 
         # Active User Role Pill
+        is_dark = (theme_manager.current_theme == "dark")
         role_colors = {
-            "ADMIN": ("#EEF2FF", "#4F46E5"),
-            "CASHIER": ("#ECFDF5", "#059669"),
-            "MANAGER": ("#FFFBEB", "#D97706")
+            "ADMIN": ("#2E1065", "#C4B5FD") if is_dark else ("#EDE9FE", "#6D28D9"),
+            "MANAGER": ("#451A03", "#FCD34D") if is_dark else ("#FEF3C7", "#B45309"),
+            "CASHIER": ("#052E16", "#6EE7B7") if is_dark else ("#DCFCE7", "#15803D"),
+            "CHEF": ("#1E1B4B", "#93C5FD") if is_dark else ("#DBEAFE", "#1D4ED8"),
+            "CUSTOMER": ("#042F2E", "#5EEAD4") if is_dark else ("#CCFBF1", "#0F766E"),
         }
-        bg_col, txt_col = role_colors.get(self.user_role, ("#F1F5F9", "#334155"))
-        role_pill = ctk.CTkFrame(hdr_right, fg_color=bg_col, corner_radius=6)
-        role_pill.pack(side="left", padx=(8, 4))
-        ctk.CTkLabel(
-            role_pill,
+        bg_col, txt_col = role_colors.get(self.user_role, ("#1E1E2A", "#F5F5F7") if is_dark else ("#F1F5F9", "#334155"))
+        self.role_pill = ctk.CTkFrame(hdr_right, fg_color=bg_col, corner_radius=6)
+        self.role_pill.pack(side="left", padx=(8, 4))
+        self.role_pill_lbl = ctk.CTkLabel(
+            self.role_pill,
             text=f"● {self.user_role}",
             font=ctk.CTkFont(size=10, weight="bold"),
             text_color=txt_col
-        ).pack(padx=8, pady=3)
+        )
+        self.role_pill_lbl.pack(padx=8, pady=3)
 
         # Logout Button
         logout_btn = ctk.CTkButton(
@@ -223,7 +252,7 @@ class MainWindow(ctk.CTkFrame):
         ).pack(side="left", padx=18)
 
         # =====================================================================
-        # CENTER WORKSPACE (DEEP NAVY SIDEBAR + WORKSPACE)
+        # CENTER WORKSPACE (DEEP CHARCOAL SIDEBAR + WORKSPACE)
         # =====================================================================
         workspace = ctk.CTkFrame(self, fg_color=palette["bg_primary"])
         workspace.pack(fill="both", expand=True)
@@ -232,7 +261,7 @@ class MainWindow(ctk.CTkFrame):
         self.sidebar_frame = ctk.CTkFrame(
             workspace,
             width=230,
-            fg_color=palette.get("sidebar_bg", "#173B70"),
+            fg_color=palette.get("sidebar_bg", "#09090E"),
             corner_radius=0,
             border_width=1,
             border_color=palette.get("sidebar_border", palette["border"])
@@ -250,6 +279,12 @@ class MainWindow(ctk.CTkFrame):
         elif self.user_role == "MANAGER":
             head_title = "FLOOR OPERATIONS"
             head_sub = "Shift & Catalog Management"
+        elif self.user_role == "CHEF":
+            head_title = "KITCHEN DISPLAY (KDS)"
+            head_sub = "Live Order Dispatch"
+        elif self.user_role == "CUSTOMER":
+            head_title = "GUEST DINING"
+            head_sub = "Menu & Feedback Portal"
         else:
             head_title = "RESTAURANT ADMIN"
             head_sub = "Executive Management"
@@ -288,31 +323,58 @@ class MainWindow(ctk.CTkFrame):
                 ("dashboard", "⚡ Shift Overview", "Alt+D"),
                 ("orders", "🛒 Counter Billing", "Alt+N"),
                 ("orders_history", "🧾 Today's Receipts", "Alt+O"),
+                ("shift_summary", "💼 Shift Closeout", "Alt+Z"),
                 ("profile", "👤 My Profile", "Alt+P"),
                 ("settings", "⚙️ Terminal Settings", "Alt+S"),
             ]
         elif self.user_role == "MANAGER":
             nav_items = [
                 ("dashboard", "📋 Operations Floor", "Alt+D"),
+                ("tables", "🪑 Floor & Table Plan", "Alt+E"),
+                ("active_orders", "⚡ Live Active Orders", "Alt+A"),
                 ("orders", "🛒 Counter Billing", "Alt+N"),
-                ("menu", "📋 Menu & 86 Catalog", "Alt+M"),
+                ("menu", "📋 Menu Management", "Alt+M"),
+                ("food_availability", "🚫 86 List & Availability", "Alt+F"),
+                ("staff_activity", "👥 Staff Activity", "Alt+U"),
+                ("feedback", "⭐ Customer Feedback", "Alt+Q"),
                 ("orders_history", "📜 Order Monitoring", "Alt+O"),
-                ("reports", "📈 Shift Sales Reports", "Alt+R"),
+                ("reports", "📈 Operational Reports", "Alt+R"),
+                ("shift_monitoring", "💼 Shift Monitoring", "Alt+Z"),
                 ("profile", "👤 My Profile", "Alt+P"),
+            ]
+        elif self.user_role == "CHEF":
+            nav_items = [
+                ("dashboard", "👨‍🍳 Kitchen Queue (KDS)", "Alt+D"),
+                ("active_orders", "⚡ Order Dispatch", "Alt+A"),
+                ("food_availability", "🚫 86 Stockout List", "Alt+F"),
+                ("orders_history", "📜 Prepared Orders", "Alt+O"),
+                ("profile", "👤 Chef Profile", "Alt+P"),
+            ]
+        elif self.user_role == "CUSTOMER":
+            nav_items = [
+                ("dashboard", "🍽️ Dining Portal & Status", "Alt+D"),
+                ("orders", "🛒 Food Menu & Order", "Alt+N"),
+                ("feedback", "⭐ Reviews & NPS", "Alt+Q"),
+                ("profile", "👤 Guest Profile", "Alt+P"),
             ]
         else:
             # ADMIN — Complete Enterprise Navigation Suite
             nav_items = [
                 ("dashboard", "📊 Executive Overview", "Alt+D"),
+                ("tables", "🪑 Floor & Table Plan", "Alt+E"),
+                ("chef_kds", "👨‍🍳 Kitchen Display (KDS)", "Alt+K"),
                 ("users", "👥 Staff Management", "Alt+U"),
-                ("roles", "🛡️ Roles & Permissions", "Alt+K"),
+                ("roles", "🛡️ Roles & Permissions", "Alt+G"),
                 ("restaurant", "🏢 Restaurant Profile", "Alt+B"),
                 ("billing_cfg", "💳 Billing & Tax Rules", "Alt+T"),
-                ("security_audit", "📜 Security & Audit Logs", "Alt+A"),
+                ("security_audit", "📜 Security & Audit Logs", "Alt+L"),
                 ("database", "💾 Database & Backups", "Alt+X"),
                 ("system_health", "🩺 System Health Monitor", "Alt+H"),
+                ("feedback", "⭐ Customer Feedback", "Alt+Q"),
+                ("active_orders", "⚡ Live Active Orders", "Alt+A"),
                 ("orders", "🛒 Point of Sale (POS)", "Alt+N"),
                 ("menu", "🍽️ Menu Catalog", "Alt+M"),
+                ("food_availability", "🚫 86 Catalog List", "Alt+F"),
                 ("orders_history", "🧾 Order Audit History", "Alt+O"),
                 ("reports", "📈 Reports & Analytics", "Alt+R"),
                 ("settings", "⚙️ System Configuration", "Alt+S"),
@@ -378,11 +440,6 @@ class MainWindow(ctk.CTkFrame):
 
     def _safe_navigate(self, view_name: str):
         if self._can_trigger_shortcut():
-            # Role permission check before navigating
-            if self.user_role == "CASHIER" and view_name in ["menu", "reports"]:
-                return
-            if self.user_role == "MANAGER" and view_name in ["settings"]:
-                return
             self.navigate_to(view_name)
 
     def _safe_theme_toggle(self):
@@ -439,22 +496,37 @@ class MainWindow(ctk.CTkFrame):
         for code, btn in self.nav_buttons.items():
             if code == self.current_view_name:
                 btn.configure(
-                    fg_color=palette.get("sidebar_active", "#2563EB"),
+                    fg_color=palette.get("sidebar_active", "#7C3AED"),
                     text_color="#FFFFFF"
                 )
             else:
                 btn.configure(
                     fg_color="transparent",
-                    text_color=palette.get("sidebar_text", "#FFFFFF"),
-                    hover_color=palette.get("sidebar_hover", "#245A9B")
+                    text_color=palette.get("sidebar_text", "#F5F5F7"),
+                    hover_color=palette.get("sidebar_hover", "#1C1C28")
                 )
 
     def navigate_to(self, view_name: str):
         """Switches active view and updates navigation highlights with strict role guards."""
         # Enforce role-based view permissions
-        if self.user_role == "CASHIER" and view_name in ["menu", "reports"]:
+        cashier_disallowed = [
+            "menu", "reports", "users", "roles", "restaurant", "billing_cfg",
+            "security_audit", "database", "system_health", "staff_activity",
+            "food_availability", "shift_monitoring", "tables", "chef_kds", "active_orders"
+        ]
+        manager_disallowed = [
+            "users", "roles", "restaurant", "billing_cfg", "database", "system_health", "chef_kds"
+        ]
+        chef_allowed = ["dashboard", "active_orders", "food_availability", "orders_history", "profile"]
+        customer_allowed = ["dashboard", "orders", "feedback", "profile"]
+
+        if self.user_role == "CASHIER" and view_name in cashier_disallowed:
             view_name = "dashboard"
-        elif self.user_role == "MANAGER" and view_name in ["settings"]:
+        elif self.user_role == "MANAGER" and view_name in manager_disallowed:
+            view_name = "dashboard"
+        elif self.user_role == "CHEF" and view_name not in chef_allowed:
+            view_name = "dashboard"
+        elif self.user_role == "CUSTOMER" and view_name not in customer_allowed:
             view_name = "dashboard"
 
         self.current_view_name = view_name
@@ -465,12 +537,39 @@ class MainWindow(ctk.CTkFrame):
             self.current_view.destroy()
 
         # Instantiate new view with role context
-        if view_name == "dashboard":
+        if self.user_role == "CHEF" and view_name in ["dashboard", "active_orders"]:
+            self.current_view = ChefKDSFrame(self.content_container)
+        elif self.user_role == "CUSTOMER" and view_name == "dashboard":
+            self.current_view = CustomerPortalFrame(
+                self.content_container,
+                on_browse_menu=lambda: self.navigate_to("orders"),
+                on_give_feedback=lambda: self.navigate_to("feedback")
+            )
+        elif view_name == "dashboard":
             self.current_view = DashboardFrame(
                 self.content_container,
                 navigate_fn=self.navigate_to,
                 role=self.user_role
             )
+        elif view_name == "chef_kds":
+            self.current_view = ChefKDSFrame(self.content_container)
+        elif view_name == "tables":
+            self.current_view = TableManagementFrame(
+                self.content_container,
+                on_table_selected=lambda tbl: self.navigate_to("orders")
+            )
+        elif view_name == "active_orders":
+            self.current_view = ManagerActiveOrdersFrame(self.content_container, on_settle_order=self.open_billing_modal)
+        elif view_name == "food_availability":
+            self.current_view = FoodAvailabilityFrame(self.content_container)
+        elif view_name == "staff_activity":
+            self.current_view = StaffActivityFrame(self.content_container)
+        elif view_name == "feedback":
+            self.current_view = CustomerFeedbackFrame(self.content_container)
+        elif view_name == "shift_monitoring":
+            self.current_view = ShiftMonitoringFrame(self.content_container)
+        elif view_name == "shift_summary":
+            self.current_view = ShiftSummaryFrame(self.content_container)
         elif view_name == "orders":
             self.current_view = NewOrderFrame(self.content_container, on_proceed_to_bill=self.open_billing_modal)
         elif view_name == "menu":

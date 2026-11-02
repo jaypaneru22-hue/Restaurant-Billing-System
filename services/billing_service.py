@@ -16,6 +16,17 @@ class BillingService:
         self.billing_repo = billing_repo or BillingRepository()
         self.order_repo = order_repo or OrderRepository()
 
+    def get_configured_tax_rate(self) -> Decimal:
+        """Retrieves the combined CGST + SGST tax rate from the persistent billing configuration."""
+        try:
+            from database.db import db
+            cfg = db.fetchone("SELECT cgst_rate, sgst_rate FROM billing_config WHERE id = 1;")
+            if cfg:
+                return (Decimal(str(cfg["cgst_rate"])) + Decimal(str(cfg["sgst_rate"]))).quantize(Decimal("0.01"))
+        except Exception:
+            pass
+        return DEFAULT_TAX_RATE
+
     def calculate_bill_breakdown(
         self,
         subtotal: Decimal,

@@ -100,6 +100,10 @@ class DashboardFrame(ctk.CTkFrame):
             self._build_cashier_dashboard(palette)
         elif self.role == "MANAGER":
             self._build_manager_dashboard(palette)
+        elif self.role == "CHEF":
+            self._build_chef_dashboard(palette)
+        elif self.role == "CUSTOMER":
+            self._build_customer_dashboard(palette)
         else:
             self._build_admin_dashboard(palette)
 
@@ -711,6 +715,202 @@ class DashboardFrame(ctk.CTkFrame):
             ).pack(side="right", padx=10)
 
     # =========================================================================
+    # 4. CHEF DASHBOARD — KITCHEN EXPEDITER & 86 LIST
+    # =========================================================================
+    def _build_chef_dashboard(self, palette: dict):
+        self.chef_scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.chef_scroll.pack(fill="both", expand=True)
+
+        header = ctk.CTkFrame(self.chef_scroll, fg_color="transparent")
+        header.pack(fill="x", padx=24, pady=(18, 12))
+
+        title_col = ctk.CTkFrame(header, fg_color="transparent")
+        title_col.pack(side="left")
+
+        ctk.CTkLabel(
+            title_col,
+            text="👨‍🍳 Kitchen Display & Order Expediter",
+            font=ctk.CTkFont(size=22, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            title_col,
+            text="Live kitchen ticket queue, preparation timing, and instant 86 stockout controls",
+            font=ctk.CTkFont(size=12),
+            text_color=palette["text_secondary"]
+        ).pack(anchor="w")
+
+        actions_box = ctk.CTkFrame(header, fg_color="transparent")
+        actions_box.pack(side="right")
+
+        ctk.CTkButton(
+            actions_box,
+            text="⚡ Kitchen Display (KDS)",
+            height=34,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            command=lambda: self.navigate("active_orders")
+        ).pack(side="left", padx=4)
+
+        ctk.CTkButton(
+            actions_box,
+            text="🚫 86 Stockout List",
+            height=34,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=palette["bg_card"],
+            hover_color=palette["border"],
+            text_color=palette["text_primary"],
+            command=lambda: self.navigate("food_availability")
+        ).pack(side="left", padx=4)
+
+        # Quick Links Card
+        card = ctk.CTkFrame(self.chef_scroll, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
+        card.pack(fill="both", expand=True, padx=24, pady=(0, 16))
+
+        c_inner = ctk.CTkFrame(card, fg_color="transparent")
+        c_inner.pack(fill="both", expand=True, padx=20, pady=20)
+
+        ctk.CTkLabel(
+            c_inner,
+            text="🍳 Kitchen Station Ready",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=palette["accent"]
+        ).pack(anchor="w", pady=(0, 8))
+
+        ctk.CTkLabel(
+            c_inner,
+            text="Select an action below to view active cooking orders or mark out-of-stock items:",
+            font=ctk.CTkFont(size=12),
+            text_color=palette["text_secondary"]
+        ).pack(anchor="w", pady=(0, 16))
+
+        btn_row = ctk.CTkFrame(c_inner, fg_color="transparent")
+        btn_row.pack(fill="x")
+
+        ctk.CTkButton(
+            btn_row,
+            text="⚡ Open Full Kitchen Screen",
+            height=40,
+            width=220,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            command=lambda: self.navigate("active_orders")
+        ).pack(side="left", padx=(0, 12))
+
+        ctk.CTkButton(
+            btn_row,
+            text="🚫 Manage 86 Out of Stock List",
+            height=40,
+            width=240,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=palette["bg_secondary"],
+            hover_color=palette["border"],
+            text_color=palette["text_primary"],
+            command=lambda: self.navigate("food_availability")
+        ).pack(side="left")
+
+    # =========================================================================
+    # 5. CUSTOMER DASHBOARD — DINING GUEST PORTAL
+    # =========================================================================
+    def _build_customer_dashboard(self, palette: dict):
+        self.cust_scroll = ctk.CTkScrollableFrame(self, fg_color="transparent")
+        self.cust_scroll.pack(fill="both", expand=True)
+
+        header = ctk.CTkFrame(self.cust_scroll, fg_color="transparent")
+        header.pack(fill="x", padx=24, pady=(18, 12))
+
+        title_col = ctk.CTkFrame(header, fg_color="transparent")
+        title_col.pack(side="left")
+
+        ctk.CTkLabel(
+            title_col,
+            text="🍽️ Welcome to TQM Dining Experience",
+            font=ctk.CTkFont(size=22, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            title_col,
+            text="Explore our gourmet dishes, view pricing, and share your dining feedback (Q08)",
+            font=ctk.CTkFont(size=12),
+            text_color=palette["text_secondary"]
+        ).pack(anchor="w")
+
+        actions_box = ctk.CTkFrame(header, fg_color="transparent")
+        actions_box.pack(side="right")
+
+        ctk.CTkButton(
+            actions_box,
+            text="🍽️ Browse Food Menu",
+            height=34,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            command=lambda: self.navigate("orders")
+        ).pack(side="left", padx=4)
+
+        ctk.CTkButton(
+            actions_box,
+            text="⭐ Submit Feedback",
+            height=34,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=palette["bg_card"],
+            hover_color=palette["border"],
+            text_color=palette["text_primary"],
+            command=lambda: self.navigate("feedback")
+        ).pack(side="left", padx=4)
+
+        # Welcome Card
+        card = ctk.CTkFrame(self.cust_scroll, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
+        card.pack(fill="both", expand=True, padx=24, pady=(0, 16))
+
+        c_inner = ctk.CTkFrame(card, fg_color="transparent")
+        c_inner.pack(fill="both", expand=True, padx=20, pady=20)
+
+        ctk.CTkLabel(
+            c_inner,
+            text="✨ Excellence in Hospitality & Fresh Cuisine",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=palette["accent"]
+        ).pack(anchor="w", pady=(0, 8))
+
+        ctk.CTkLabel(
+            c_inner,
+            text="Browse our live food catalog, inspect item pricing, or tell us how we can serve you better:",
+            font=ctk.CTkFont(size=12),
+            text_color=palette["text_secondary"]
+        ).pack(anchor="w", pady=(0, 16))
+
+        btn_row = ctk.CTkFrame(c_inner, fg_color="transparent")
+        btn_row.pack(fill="x")
+
+        ctk.CTkButton(
+            btn_row,
+            text="🍽️ Explore Menu Catalog",
+            height=40,
+            width=220,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            command=lambda: self.navigate("orders")
+        ).pack(side="left", padx=(0, 12))
+
+        ctk.CTkButton(
+            btn_row,
+            text="⭐ Share Guest Feedback",
+            height=40,
+            width=220,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=palette["bg_secondary"],
+            hover_color=palette["border"],
+            text_color=palette["text_primary"],
+            command=lambda: self.navigate("feedback")
+        ).pack(side="left")
+
+    # =========================================================================
     # HELPER: REUSABLE KPI CARD
     # =========================================================================
     def _create_kpi_card(
@@ -814,6 +1014,8 @@ class DashboardFrame(ctk.CTkFrame):
                         )
                         btn_settle.pack(side="right", padx=10)
 
+        elif self.role in ["CHEF", "CUSTOMER"]:
+            pass
         else:
             # ADMIN
             metrics = self.dashboard_svc.get_admin_metrics()

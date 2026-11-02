@@ -26,6 +26,20 @@ DEFAULT_PERMISSIONS = {
         "reports_view_shift": True, "reports_view_analytics": False, "reports_export_csv": False,
         "staff_create_account": False, "staff_edit_account": False, "staff_reset_password": False, "audit_view_logs": False,
         "system_edit_profile": False, "system_edit_taxes": False, "db_backup_restore": False, "system_diagnostics": False
+    },
+    "CHEF": {
+        "pos_create_order": False, "pos_apply_discount": False, "pos_cancel_order": False, "pos_settle_bill": False, "pos_reprint_receipt": False,
+        "menu_view_catalog": True, "menu_toggle_86": True, "menu_edit_pricing": False, "menu_manage_categories": False,
+        "reports_view_shift": False, "reports_view_analytics": False, "reports_export_csv": False,
+        "staff_create_account": False, "staff_edit_account": False, "staff_reset_password": False, "audit_view_logs": False,
+        "system_edit_profile": False, "system_edit_taxes": False, "db_backup_restore": False, "system_diagnostics": False
+    },
+    "CUSTOMER": {
+        "pos_create_order": True, "pos_apply_discount": False, "pos_cancel_order": False, "pos_settle_bill": False, "pos_reprint_receipt": False,
+        "menu_view_catalog": True, "menu_toggle_86": False, "menu_edit_pricing": False, "menu_manage_categories": False,
+        "reports_view_shift": False, "reports_view_analytics": False, "reports_export_csv": False,
+        "staff_create_account": False, "staff_edit_account": False, "staff_reset_password": False, "audit_view_logs": False,
+        "system_edit_profile": False, "system_edit_taxes": False, "db_backup_restore": False, "system_diagnostics": False
     }
 }
 
@@ -152,7 +166,7 @@ class RolesPermissionsFrame(ctk.CTkFrame):
 
         self.role_seg = ctk.CTkSegmentedButton(
             r_inner,
-            values=["CASHIER", "MANAGER", "ADMIN"],
+            values=["CASHIER", "MANAGER", "ADMIN", "CHEF", "CUSTOMER"],
             height=34,
             font=ctk.CTkFont(size=11, weight="bold"),
             selected_color=palette["accent"],

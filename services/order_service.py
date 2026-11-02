@@ -110,6 +110,17 @@ class OrderService:
             return True, "Order cancelled successfully."
         return False, "Failed to cancel order."
 
+    def update_order_status(self, order_id: int, status: str) -> Tuple[bool, str]:
+        """Updates the status of an order (e.g. ACCEPTED, PREPARING, READY, COMPLETED)."""
+        order = self.order_repo.get_by_id(order_id)
+        if not order:
+            return False, "Order not found."
+        success = self.order_repo.update_status(order_id, status.upper())
+        if success:
+            logger.info(f"Order id={order_id} status updated to {status.upper()}.")
+            return True, f"Order status updated to {status.upper()}."
+        return False, "Failed to update order status."
+
     def get_order_subtotal(self, order: Order) -> Decimal:
         """Calculates total value of items in order using Decimal."""
         return sum((item.line_total for item in order.items), Decimal("0.00")).quantize(Decimal("0.01"))

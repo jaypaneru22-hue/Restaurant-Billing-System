@@ -179,6 +179,11 @@ class RestaurantSettingsFrame(ctk.CTkFrame):
                     self.entry_rec_footer.get().strip()
                 )
             )
+            conn.execute(
+                """INSERT INTO audit_logs (username, action, module, details)
+                   VALUES ('Admin', 'UPDATE_PROFILE', 'RESTAURANT', ?);""",
+                (f"Updated profile for {self.entry_name.get().strip()}",)
+            )
         self.lbl_status.configure(text="✓ Restaurant Profile saved successfully.", text_color=palette["success"])
 
 
@@ -368,6 +373,11 @@ class BillingTaxSettingsFrame(ctk.CTkFrame):
                     str(max_disc),
                     1 if self.switch_round_off.get() else 0
                 )
+            )
+            conn.execute(
+                """INSERT INTO audit_logs (username, action, module, details)
+                   VALUES ('Admin', 'UPDATE_BILLING_TAX', 'BILLING', ?);""",
+                (f"Updated GST: CGST={cgst}%, SGST={sgst}%, Total={(cgst + sgst)}%, MaxDisc={max_disc}%",)
             )
 
         self.lbl_total_gst.configure(text=f"{(cgst + sgst):.1f}%")

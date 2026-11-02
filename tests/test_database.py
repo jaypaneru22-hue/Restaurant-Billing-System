@@ -62,4 +62,4 @@ def test_migrations_idempotency(clean_db):
     cursor.execute("SELECT COUNT(*) FROM users;")
     user_count = cursor.fetchone()[0]
     conn.close()
-    assert user_count == 2
+    assert user_count == 5  # 5 seeded role accounts: admin, cashier, manager, chef, customer

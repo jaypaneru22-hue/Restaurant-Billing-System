@@ -55,6 +55,94 @@ class ForgotPasswordDialog(ctk.CTkToplevel):
         self.bind("<Escape>", lambda e: self.destroy())
 
 
+class CustomerRegisterDialog(ctk.CTkToplevel):
+    """Registration dialog for dining guests to create a personal customer account."""
+
+    def __init__(self, master, on_registered: Callable, auth_svc: AuthService = auth_service, **kwargs):
+        super().__init__(master, **kwargs)
+        self.auth_svc = auth_svc
+        self.on_registered = on_registered
+        self.title("Guest Account Registration")
+        self.resizable(False, False)
+        center_dialog(self, master, target_width=440, target_height=420)
+        self.grab_set()
+
+        palette = theme_manager.get_palette()
+        self.configure(fg_color=palette["bg_primary"])
+
+        card = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=12, border_width=1, border_color=palette["border"])
+        card.pack(fill="both", expand=True, padx=20, pady=20)
+
+        ctk.CTkLabel(
+            card,
+            text="🍽️ Guest Registration",
+            font=ctk.CTkFont(size=17, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(anchor="w", padx=20, pady=(16, 4))
+
+        ctk.CTkLabel(
+            card,
+            text="Create an account to browse menu, track orders, and leave dining reviews.",
+            font=ctk.CTkFont(size=11),
+            text_color=palette["text_secondary"]
+        ).pack(anchor="w", padx=20, pady=(0, 14))
+
+        # Full Name
+        ctk.CTkLabel(card, text="Full Name", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", palette["text_primary"])).pack(anchor="w", padx=20, pady=(0, 2))
+        self.ent_name = ctk.CTkEntry(card, height=34, placeholder_text="e.g. John Doe", font=ctk.CTkFont(size=11))
+        self.ent_name.pack(fill="x", padx=20, pady=(0, 10))
+
+        # Username
+        ctk.CTkLabel(card, text="Username", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", palette["text_primary"])).pack(anchor="w", padx=20, pady=(0, 2))
+        self.ent_user = ctk.CTkEntry(card, height=34, placeholder_text="e.g. johndoe", font=ctk.CTkFont(size=11))
+        self.ent_user.pack(fill="x", padx=20, pady=(0, 10))
+
+        # Password
+        ctk.CTkLabel(card, text="Password (min 6 characters)", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", palette["text_primary"])).pack(anchor="w", padx=20, pady=(0, 2))
+        self.ent_pass = ctk.CTkEntry(card, height=34, placeholder_text="Enter password", show="•", font=ctk.CTkFont(size=11))
+        self.ent_pass.pack(fill="x", padx=20, pady=(0, 10))
+
+        self.lbl_err = ctk.CTkLabel(card, text="", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["danger"])
+        self.lbl_err.pack(fill="x", padx=20, pady=(0, 6))
+
+        btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        btn_row.pack(fill="x", padx=20, pady=(0, 12))
+
+        ctk.CTkButton(
+            btn_row,
+            text="Cancel",
+            width=90,
+            height=32,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["bg_secondary"],
+            hover_color=palette["border"],
+            text_color=palette["text_primary"],
+            command=self.destroy
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            btn_row,
+            text="Register & Sign In 🚀",
+            height=32,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            command=self._handle_register
+        ).pack(side="right")
+
+    def _handle_register(self):
+        name = self.ent_name.get().strip()
+        user = self.ent_user.get().strip()
+        pwd = self.ent_pass.get().strip()
+
+        ok, msg, created_user = self.auth_svc.register_customer(user, pwd, name)
+        if ok and created_user:
+            self.destroy()
+            self.on_registered(created_user)
+        else:
+            self.lbl_err.configure(text=msg)
+
+
 class LoginFrame(ctk.CTkFrame):
     """Modern SaaS commercial authentication interface inspired by industry POS solutions."""
 
@@ -212,13 +300,61 @@ class LoginFrame(ctk.CTkFrame):
             form_box,
             text="Sign In to Terminal 🚀",
             font=ctk.CTkFont(size=13, weight="bold"),
-            height=42,
+            height=40,
             fg_color=palette["accent"],
             hover_color=palette["accent_hover"],
             text_color="#FFFFFF",
             command=self._handle_login
         )
         self.btn_login.pack(fill="x", pady=(0, 6))
+
+        # Guest Registration Action
+        self.btn_register_cust = ctk.CTkButton(
+            form_box,
+            text="🍽️ New Guest? Register Dining Account",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            height=30,
+            fg_color="transparent",
+            hover_color=palette["bg_secondary"],
+            text_color=palette["accent"],
+            command=self._open_customer_registration
+        )
+        self.btn_register_cust.pack(fill="x", pady=(0, 10))
+
+        # Quick Demo Role Fill Row
+        demo_box = ctk.CTkFrame(form_box, fg_color=palette["bg_secondary"], corner_radius=8)
+        demo_box.pack(fill="x", pady=(0, 8))
+
+        ctk.CTkLabel(
+            demo_box,
+            text="⚡ QUICK DEMO LOGIN (1-CLICK):",
+            font=ctk.CTkFont(size=9, weight="bold"),
+            text_color=palette["text_secondary"]
+        ).pack(anchor="w", padx=10, pady=(6, 4))
+
+        roles_row = ctk.CTkFrame(demo_box, fg_color="transparent")
+        roles_row.pack(fill="x", padx=6, pady=(0, 8))
+
+        demo_users = [
+            ("Admin", "admin", "Admin123!"),
+            ("Manager", "manager1", "Manager123!"),
+            ("Cashier", "cashier1", "Cashier123!"),
+            ("Chef", "chef1", "Chef123!"),
+            ("Guest", "customer1", "Customer123!"),
+        ]
+
+        for label, u, p in demo_users:
+            ctk.CTkButton(
+                roles_row,
+                text=label,
+                width=65,
+                height=26,
+                font=ctk.CTkFont(size=10, weight="bold"),
+                fg_color=palette["bg_card"],
+                hover_color=palette["accent"],
+                text_color=palette["text_primary"],
+                command=lambda un=u, pw=p: self._quick_login(un, pw)
+            ).pack(side="left", expand=True, padx=2)
 
         # 3. Footer Security Indicator
         footer_box = ctk.CTkFrame(card, fg_color="transparent")
@@ -248,6 +384,16 @@ class LoginFrame(ctk.CTkFrame):
 
     def _open_forgot_password(self):
         ForgotPasswordDialog(self.winfo_toplevel())
+
+    def _open_customer_registration(self):
+        CustomerRegisterDialog(self.winfo_toplevel(), on_registered=self.on_login_success)
+
+    def _quick_login(self, username: str, password: str):
+        self.username_entry.delete(0, "end")
+        self.username_entry.insert(0, username)
+        self.password_entry.delete(0, "end")
+        self.password_entry.insert(0, password)
+        self._handle_login()
 
     def _load_remembered_staff(self):
         """Pre-populates the username if the user previously opted to remember it."""
