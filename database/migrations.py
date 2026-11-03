@@ -208,6 +208,28 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     );
     """)
 
+    # 6b. Customer Floor Service Requests
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS service_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_number TEXT NOT NULL,
+        order_id INTEGER,
+        customer_id INTEGER,
+        customer_name TEXT DEFAULT 'Guest',
+        request_type TEXT NOT NULL,
+        notes TEXT DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        assigned_waiter_id INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        resolved_at TIMESTAMP,
+        FOREIGN KEY (order_id) REFERENCES orders(id),
+        FOREIGN KEY (customer_id) REFERENCES users(id),
+        FOREIGN KEY (assigned_waiter_id) REFERENCES users(id)
+    );
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_service_requests_status ON service_requests(status);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_service_requests_waiter ON service_requests(assigned_waiter_id);")
+
     # 7. Restaurant Floor & Table Management (Phase E)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS restaurant_tables (

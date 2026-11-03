@@ -56,8 +56,20 @@ def ensure_demo_data():
         # Assign T-1 and T-3 to waiter 14
         cursor.execute("UPDATE restaurant_tables SET waiter_id = 14 WHERE table_number IN ('T-1', 'T-3');")
 
+        # Ensure demo service requests
+        cursor.execute("SELECT id FROM service_requests WHERE status = 'PENDING' LIMIT 1;")
+        if not cursor.fetchone():
+            cursor.execute(
+                """INSERT INTO service_requests (table_number, order_id, customer_id, customer_name, request_type, notes, status, assigned_waiter_id)
+                   VALUES ('T-1', NULL, 1, 'Priya Sharma (VIP)', 'Water', 'Chilled water with lime slice', 'PENDING', 14);"""
+            )
+            cursor.execute(
+                """INSERT INTO service_requests (table_number, order_id, customer_id, customer_name, request_type, notes, status, assigned_waiter_id)
+                   VALUES ('T-3', NULL, 1, 'Vikram Malhotra', 'Extra Cutlery', '2 dessert spoons and extra napkins', 'IN_PROGRESS', 14);"""
+            )
 
-def capture_waiter_dashboard(theme_name: str, filename: str):
+
+def capture_waiter_dashboard(theme_name: str, filename: str, initial_filter: str = "ALL"):
     theme_manager.apply_theme(theme_name)
     ctk.set_appearance_mode("dark" if theme_name == "dark" else "light")
 
@@ -65,7 +77,7 @@ def capture_waiter_dashboard(theme_name: str, filename: str):
     root.geometry("1180x780+80+60")
     root.title(f"RestoPro Floor Waiter Terminal — {theme_name.capitalize()}")
 
-    frame = WaiterDashboardFrame(root, waiter_id=14)
+    frame = WaiterDashboardFrame(root, waiter_id=14, initial_filter=initial_filter)
     frame.pack(fill="both", expand=True)
 
     root.update_idletasks()
@@ -154,7 +166,9 @@ def capture_manager_active_orders(filename: str):
 
 if __name__ == "__main__":
     ensure_demo_data()
-    capture_waiter_dashboard("dark", "waiter_dashboard_dark.png")
-    capture_waiter_dashboard("light", "waiter_dashboard_light.png")
+    capture_waiter_dashboard("dark", "waiter_dashboard_dark.png", initial_filter="ALL")
+    capture_waiter_dashboard("light", "waiter_dashboard_light.png", initial_filter="ALL")
+    capture_waiter_dashboard("dark", "waiter_service_requests_dark.png", initial_filter="REQUESTS")
+    capture_waiter_dashboard("dark", "waiter_assigned_tables_dark.png", initial_filter="TABLES")
     capture_manager_tables("manager_table_waiters_dark.png")
     capture_manager_active_orders("manager_active_orders_waiters_dark.png")

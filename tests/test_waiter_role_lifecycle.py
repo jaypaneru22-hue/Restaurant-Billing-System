@@ -2,12 +2,14 @@
 
 Verifies:
 1. Waiter role definition, seeding, authentication, and permission boundaries.
-2. Waiter table assignment and persistence.
+2. Waiter table assignment, reassignment, and rejection of inactive waiter accounts.
 3. Full end-to-end order lifecycle:
    PENDING -> ACCEPTED -> PREPARING -> READY -> PICKED_UP -> SERVED -> COMPLETED.
-4. Role boundary enforcement (Chef cannot mark SERVED, Waiter cannot settle bills).
-5. State transition guards and validation rules.
-6. Delayed READY order detection for floor managers.
+4. Role boundary enforcement (Chef cannot mark SERVED, Waiter cannot settle bills or mark READY).
+5. Customer service requests flow (Water, Cutlery, Napkins, Assistance) with acceptance and resolution.
+6. Unassigned READY orders queue visible to all floor servers.
+7. Delayed READY order detection for floor managers.
+8. Waiter workload summary metrics for Manager oversight.
 """
 import pytest
 from datetime import datetime, timedelta
@@ -46,7 +48,7 @@ def waiter_env(tmp_path):
 
     auth_svc = AuthService(user_repo=UserRepository(db_mgr))
     order_svc = OrderService(order_repo=OrderRepository(db_mgr), menu_repo=MenuRepository(db_mgr))
-    waiter_svc = WaiterService(db_manager=db_mgr, order_repo=OrderRepository(db_mgr))
+    waiter_svc = WaiterService(db_manager=db_mgr, order_repo=OrderRepository(db_mgr), user_repo=UserRepository(db_mgr))
 
     return {
         "db": db_mgr,
@@ -98,6 +100,37 @@ def test_waiter_table_assignment(waiter_env):
     table_numbers_after = [t["table_number"] for t in assigned_after]
     assert "T-1" not in table_numbers_after
     assert "T-2" in table_numbers_after
+
+
+def test_inactive_waiter_rejection(waiter_env):
+    """Verifies that deactivated waiter accounts cannot be assigned to tables or orders."""
+    waiter_svc = waiter_env["waiter_svc"]
+    order_svc = waiter_env["order_svc"]
+    db = waiter_env["db"]
+
+    waiters = waiter_svc.get_all_waiters()
+    assert len(waiters) >= 1
+    waiter = waiters[0]
+
+    # Deactivate this waiter
+    db.execute("UPDATE users SET is_active = 0 WHERE id = ?;", (waiter.id,))
+
+    # Table assignment should fail
+    ok_tbl, err_tbl = waiter_svc.assign_table_to_waiter("T-1", waiter.id)
+    assert ok_tbl is False
+    assert "inactive account" in err_tbl
+
+    # Order assignment should fail
+    ok_ord, _, order = order_svc.create_order(
+        user_id=1,
+        table_number="T-1",
+        customer_name="Test Diner",
+        item_entries=[(1, 1)]
+    )
+    assert ok_ord is True
+    ok_asgn, err_asgn = order_svc.assign_waiter_to_order(order.id, waiter.id)
+    assert ok_asgn is False
+    assert "inactive account" in err_asgn
 
 
 def test_end_to_end_order_serving_lifecycle(waiter_env):
@@ -186,6 +219,98 @@ def test_end_to_end_order_serving_lifecycle(waiter_env):
     assert completed_order.status == ORDER_STATUS_COMPLETED
 
 
+def test_customer_service_requests_flow(waiter_env):
+    """Verifies creating, accepting, and resolving customer table requests."""
+    waiter_svc = waiter_env["waiter_svc"]
+    order_svc = waiter_env["order_svc"]
+
+    waiters = waiter_svc.get_all_waiters()
+    assert len(waiters) >= 1
+    waiter_id = waiters[0].id
+
+    # Create real customer order first
+    ok_o, _, order = order_svc.create_order(
+        user_id=1,
+        table_number="T-1",
+        customer_name="Priya Sharma",
+        item_entries=[(1, 1)]
+    )
+    assert ok_o is True
+    order_id = order.id
+
+    # Customer creates 2 requests
+    ok1, msg1, req_id1 = waiter_svc.create_service_request(
+        table_number="T-1",
+        request_type="Water",
+        notes="Chilled water with lemon slice",
+        order_id=order_id,
+        customer_id=1,
+        customer_name="Priya Sharma"
+    )
+    assert ok1 is True, f"Failed req1: {msg1}"
+    assert req_id1 is not None
+
+    ok2, msg2, req_id2 = waiter_svc.create_service_request(
+        table_number="T-1",
+        request_type="Extra Cutlery",
+        notes="2 forks and soup spoon",
+        order_id=order_id,
+        customer_id=1,
+        customer_name="Priya Sharma"
+    )
+    assert ok2 is True, f"Failed req2: {msg2}"
+    assert req_id2 is not None
+
+    # Verify pending requests
+    pending = waiter_svc.get_service_requests(status="PENDING")
+    p_ids = [r["id"] for r in pending]
+    assert req_id1 in p_ids
+    assert req_id2 in p_ids
+    assert waiter_svc.get_pending_requests_count() >= 2
+
+    # Waiter accepts request 1
+    ok_acc, msg_acc = waiter_svc.accept_service_request(req_id1, waiter_id=waiter_id)
+    assert ok_acc is True
+    req1_data = waiter_svc.get_service_requests(status="IN_PROGRESS")
+    assert any(r["id"] == req_id1 for r in req1_data)
+
+    # Waiter resolves request 1
+    ok_res, msg_res = waiter_svc.resolve_service_request(req_id1, waiter_id=waiter_id)
+    assert ok_res is True
+    resolved = waiter_svc.get_service_requests(status="RESOLVED")
+    assert any(r["id"] == req_id1 and r["resolved_at"] is not None for r in resolved)
+
+
+def test_unassigned_ready_orders_visible_to_all(waiter_env):
+    """Verifies that orders marked READY without an assigned waiter are visible in all waiters' queues."""
+    order_svc = waiter_env["order_svc"]
+    waiter_svc = waiter_env["waiter_svc"]
+
+    waiters = waiter_svc.get_all_waiters()
+    waiter_id = waiters[0].id
+
+    # Create unassigned order
+    ok, _, order = order_svc.create_order(
+        user_id=1,
+        table_number="Takeaway",
+        customer_name="Quick Guest",
+        item_entries=[(1, 1)]
+    )
+    assert ok is True
+    order_id = order.id
+    order_svc.update_order_status(order_id, ORDER_STATUS_ACCEPTED)
+    order_svc.update_order_status(order_id, ORDER_STATUS_PREPARING)
+    order_svc.update_order_status(order_id, ORDER_STATUS_READY)
+
+    # Must be in unassigned ready orders
+    unassigned = waiter_svc.get_unassigned_ready_orders()
+    assert any(o["id"] == order_id for o in unassigned)
+
+    # Must also appear in waiter's queue even though waiter_id is not set
+    waiter_ready = waiter_svc.get_ready_orders(waiter_id=waiter_id)
+    assert any(o["id"] == order_id for o in waiter_ready)
+
+
 def test_waiter_delayed_orders_detection(waiter_env):
     """Verifies that orders waiting > 5 minutes in READY status trigger delayed alerts."""
     order_svc = waiter_env["order_svc"]
@@ -195,7 +320,7 @@ def test_waiter_delayed_orders_detection(waiter_env):
     # Create and advance order to READY
     ok, _, order = order_svc.create_order(
         user_id=1,
-        table_number="Table 3",
+        table_number="T-3",
         customer_name="Bob VIP",
         item_entries=[(2, 1)],
     )
@@ -213,3 +338,16 @@ def test_waiter_delayed_orders_detection(waiter_env):
     delayed_ids = [o["id"] for o in delayed]
     assert order_id in delayed_ids
     assert delayed[0]["elapsed_ready_mins"] >= 9.0
+
+
+def test_waiter_workload_summary(waiter_env):
+    """Verifies that Manager workload summary reflects actual active tables and tasks."""
+    waiter_svc = waiter_env["waiter_svc"]
+    summary = waiter_svc.get_waiter_workload_summary()
+    assert len(summary) >= 1
+    first = summary[0]
+    assert "username" in first
+    assert "assigned_tables" in first
+    assert "in_transit" in first
+    assert "served_today" in first
+    assert "open_requests" in first

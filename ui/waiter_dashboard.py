@@ -9,11 +9,266 @@ from services.order_service import OrderService, order_service
 from services.waiter_service import WaiterService, waiter_service
 from services.auth_service import AuthService, auth_service
 from repositories.order_repository import OrderRepository
+from utils.window_utils import center_dialog
 from utils.logger import logger
 
 
+class OrderDetailDialog(ctk.CTkToplevel):
+    """Modal dialog displaying comprehensive line-item details and chef notes for a dish ticket."""
+
+    def __init__(self, master, order_data: Dict, order_svc: OrderService = order_service, **kwargs):
+        super().__init__(master, **kwargs)
+        self.order_data = order_data
+        self.order_svc = order_svc
+
+        self.title(f"Order #{order_data['order_number']} — Details")
+        self.resizable(False, False)
+        center_dialog(self, master, target_width=520, target_height=560, min_width=480, min_height=500)
+        self.grab_set()
+
+        self._build_ui()
+
+    def _build_ui(self):
+        palette = theme_manager.get_palette()
+        self.configure(fg_color=palette["bg_primary"])
+
+        # Header
+        head = ctk.CTkFrame(self, fg_color="transparent")
+        head.pack(fill="x", padx=20, pady=(16, 8))
+
+        ctk.CTkLabel(
+            head,
+            text=f"📋 Order Details — #{self.order_data['order_number']}",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(side="left")
+
+        st = self.order_data.get("status", "READY")
+        st_colors = {
+            "READY": ("#FEE2E2", "#B91C1C"),
+            "PICKED_UP": ("#FEF3C7", "#B45309"),
+            "SERVED": ("#DCFCE7", "#15803D"),
+            "COMPLETED": ("#E0E7FF", "#3730A3")
+        }
+        bg, fg = st_colors.get(st, ("#F1F5F9", "#475569"))
+        pill = ctk.CTkFrame(head, fg_color=bg, corner_radius=6)
+        pill.pack(side="right")
+        ctk.CTkLabel(pill, text=st, font=ctk.CTkFont(size=10, weight="bold"), text_color=fg).pack(padx=8, pady=2)
+
+        # Meta summary card
+        meta = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=8, border_width=1, border_color=palette["border"])
+        meta.pack(fill="x", padx=20, pady=(0, 10))
+
+        tbl = self.order_data.get("table_number") or "Takeaway"
+        cust = self.order_data.get("customer_name") or "Guest Diner"
+        server = self.order_data.get("waiter_name") or "Unassigned"
+        created = self.order_data.get("created_at") or "Unknown"
+
+        ctk.CTkLabel(meta, text=f"🪑 Table / Station: {tbl}", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_primary"]).grid(row=0, column=0, sticky="w", padx=12, pady=(8, 2))
+        ctk.CTkLabel(meta, text=f"👤 Guest: {cust}", font=ctk.CTkFont(size=11), text_color=palette["text_secondary"]).grid(row=0, column=1, sticky="w", padx=12, pady=(8, 2))
+        ctk.CTkLabel(meta, text=f"🚶 Assigned Server: {server}", font=ctk.CTkFont(size=11), text_color=palette["text_secondary"]).grid(row=1, column=0, sticky="w", padx=12, pady=(2, 8))
+        ctk.CTkLabel(meta, text=f"🕒 Placed: {created}", font=ctk.CTkFont(size=11), text_color=palette["text_secondary"]).grid(row=1, column=1, sticky="w", padx=12, pady=(2, 8))
+
+        # Special Kitchen Notes if any
+        notes = (self.order_data.get("special_instructions") or "").strip()
+        if notes:
+            n_box = ctk.CTkFrame(self, fg_color="#451A03", corner_radius=6, border_width=1, border_color="#F59E0B")
+            n_box.pack(fill="x", padx=20, pady=(0, 10))
+            ctk.CTkLabel(n_box, text=f"📝 Kitchen Instructions:\n{notes}", font=ctk.CTkFont(size=11, weight="bold"), text_color="#FCD34D", justify="left").pack(padx=12, pady=6, anchor="w")
+
+        # Line items container
+        items_frame = ctk.CTkScrollableFrame(self, fg_color=palette["bg_secondary"], corner_radius=8, height=220)
+        items_frame.pack(fill="both", expand=True, padx=20, pady=(0, 12))
+
+        order_repo = OrderRepository(db)
+        items = order_repo.get_order_items(self.order_data["id"])
+
+        subtotal = 0.0
+        for it in items:
+            i_row = ctk.CTkFrame(items_frame, fg_color="transparent")
+            i_row.pack(fill="x", padx=8, pady=4)
+
+            ctk.CTkLabel(i_row, text=f"{it.quantity}x  {it.item_name}", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["text_primary"]).pack(side="left")
+            line_tot = float(it.line_total)
+            subtotal += line_tot
+            ctk.CTkLabel(i_row, text=f"₹{line_tot:,.2f}", font=ctk.CTkFont(size=12), text_color=palette["text_secondary"]).pack(side="right")
+
+        # Bottom Subtotal & Close
+        bot = ctk.CTkFrame(self, fg_color="transparent")
+        bot.pack(fill="x", padx=20, pady=(0, 16))
+
+        ctk.CTkLabel(
+            bot,
+            text=f"Total Items: {len(items)}  |  Ticket Value: ₹{subtotal:,.2f}",
+            font=ctk.CTkFont(size=12, weight="bold"),
+            text_color=palette["accent"]
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            bot,
+            text="Close (Esc)",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["bg_card"],
+            text_color=palette["text_primary"],
+            hover_color=palette["border"],
+            height=32,
+            width=90,
+            command=self.destroy
+        ).pack(side="right")
+
+        self.bind("<Escape>", lambda e: self.destroy())
+
+
+class ServedConfirmDialog(ctk.CTkToplevel):
+    """Confirmation modal prior to marking an order as served."""
+
+    def __init__(self, master, order_number: str, table_number: str, on_confirm: Callable[[], None], **kwargs):
+        super().__init__(master, **kwargs)
+        self.on_confirm = on_confirm
+
+        self.title("Confirm Food Delivery")
+        self.resizable(False, False)
+        center_dialog(self, master, target_width=420, target_height=220, min_width=380, min_height=200)
+        self.grab_set()
+
+        palette = theme_manager.get_palette()
+        self.configure(fg_color=palette["bg_primary"])
+
+        card = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
+        card.pack(fill="both", expand=True, padx=16, pady=16)
+
+        ctk.CTkLabel(
+            card,
+            text="✅ Confirm Delivery to Table",
+            font=ctk.CTkFont(size=15, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(anchor="w", padx=16, pady=(14, 6))
+
+        ctk.CTkLabel(
+            card,
+            text=f"Have all prepared dishes for Order #{order_number}\nbeen delivered to {table_number}?",
+            font=ctk.CTkFont(size=12),
+            text_color=palette["text_secondary"],
+            justify="left"
+        ).pack(anchor="w", padx=16, pady=(0, 16))
+
+        btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        btn_row.pack(fill="x", padx=16, pady=(0, 12))
+
+        ctk.CTkButton(
+            btn_row,
+            text="Cancel",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["bg_secondary"],
+            text_color=palette["text_primary"],
+            hover_color=palette["border"],
+            height=32,
+            width=90,
+            command=self.destroy
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            btn_row,
+            text="Yes, Mark as Served",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#10B981",
+            hover_color="#059669",
+            text_color="#FFFFFF",
+            height=32,
+            width=150,
+            command=self._handle_confirm
+        ).pack(side="right")
+
+    def _handle_confirm(self):
+        self.destroy()
+        self.on_confirm()
+
+
+class WaiterProfileDialog(ctk.CTkToplevel):
+    """Displays authenticated staff profile, shift info, and server telemetry."""
+
+    def __init__(self, master, waiter_id: int, auth_svc: AuthService = auth_service, waiter_svc: WaiterService = waiter_service, **kwargs):
+        super().__init__(master, **kwargs)
+        self.waiter_id = waiter_id
+        self.auth_svc = auth_svc
+        self.waiter_svc = waiter_svc
+
+        self.title("RestoPro — Floor Server Profile")
+        self.resizable(False, False)
+        center_dialog(self, master, target_width=440, target_height=420, min_width=400, min_height=380)
+        self.grab_set()
+
+        self._build_ui()
+
+    def _build_ui(self):
+        palette = theme_manager.get_palette()
+        self.configure(fg_color=palette["bg_primary"])
+
+        curr_user = self.auth_svc.current_user
+
+        card = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
+        card.pack(fill="both", expand=True, padx=16, pady=16)
+
+        ctk.CTkLabel(
+            card,
+            text="👤 Floor Server Identity",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(anchor="w", padx=16, pady=(16, 10))
+
+        # Avatar Pill
+        avatar_box = ctk.CTkFrame(card, fg_color=palette["bg_secondary"], corner_radius=8)
+        avatar_box.pack(fill="x", padx=16, pady=(0, 12))
+
+        ctk.CTkLabel(
+            avatar_box,
+            text=f"Server: {curr_user.full_name if curr_user else 'Floor Waiter'}",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color=palette["text_primary"]
+        ).pack(anchor="w", padx=12, pady=(10, 2))
+
+        ctk.CTkLabel(
+            avatar_box,
+            text=f"Username: {curr_user.username if curr_user else 'waiter1'}  •  Role: WAITER",
+            font=ctk.CTkFont(size=11),
+            text_color=palette["accent"]
+        ).pack(anchor="w", padx=12, pady=(0, 10))
+
+        # Stats
+        telemetry = self.waiter_svc.get_waiter_telemetry(self.waiter_id)
+        stat_frame = ctk.CTkFrame(card, fg_color="transparent")
+        stat_frame.pack(fill="x", padx=16, pady=(0, 12))
+
+        rows = [
+            ("Assigned Tables:", f"{telemetry.get('tables_count', 0)} active tables"),
+            ("Orders In Service:", f"{telemetry.get('transit_count', 0)} orders"),
+            ("Served Orders Today:", f"{telemetry.get('served_count', 0)} orders delivered"),
+            ("Pending Table Requests:", f"{telemetry.get('requests_count', 0)} requests"),
+            ("Assigned Shift:", "Floor Service — Shift A (Full Day)"),
+            ("Account Status:", "Active & Authenticated (Database Verified)")
+        ]
+
+        for idx, (label, val) in enumerate(rows):
+            r = ctk.CTkFrame(stat_frame, fg_color="transparent")
+            r.pack(fill="x", pady=2)
+            ctk.CTkLabel(r, text=label, font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(side="left")
+            ctk.CTkLabel(r, text=val, font=ctk.CTkFont(size=11), text_color=palette["text_primary"]).pack(side="right")
+
+        ctk.CTkButton(
+            card,
+            text="Close (Esc)",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            height=32,
+            command=self.destroy
+        ).pack(side="bottom", fill="x", padx=16, pady=16)
+
+        self.bind("<Escape>", lambda e: self.destroy())
+
+
 class WaiterDashboardFrame(ctk.CTkFrame):
-    """Dedicated operational dashboard for floor waiters to manage ready pickups, serving, and tables."""
+    """Dedicated operational dashboard for floor waiters to manage ready pickups, serving, customer requests, and tables."""
 
     def __init__(
         self,
@@ -30,12 +285,13 @@ class WaiterDashboardFrame(ctk.CTkFrame):
         self.order_svc = order_svc
         self.waiter_svc = waiter_svc
         self.auth_svc = auth_svc
-        self.current_filter = initial_filter  # ALL, READY, PICKED_UP, SERVED, TABLES, HISTORY
+        self.current_filter = initial_filter  # ALL, READY, PICKED_UP, SERVED, TABLES, REQUESTS, HISTORY
         self._auto_refresh_id: Optional[str] = None
         self._is_active: bool = True
         self._poll_interval_ms: int = 4000
+        self._history_search_query: str = ""
 
-        # Smart in-place cache
+        # Differential cache
         self._rendered_signature: Tuple = ()
         self._card_timer_labels: Dict[int, Tuple[ctk.CTkLabel, float]] = {}
 
@@ -113,7 +369,7 @@ class WaiterDashboardFrame(ctk.CTkFrame):
 
         ctk.CTkLabel(
             title_box,
-            text="Pick up ready dishes from the kitchen pass, serve dining tables, and monitor guest orders.",
+            text="Pick up ready dishes from kitchen pass, attend guest table requests, and deliver food.",
             font=ctk.CTkFont(size=11),
             text_color=palette["text_secondary"]
         ).pack(anchor="w", pady=(2, 0))
@@ -124,17 +380,29 @@ class WaiterDashboardFrame(ctk.CTkFrame):
 
         ctk.CTkButton(
             ctrl_box,
+            text="👤 My Profile",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["bg_card"],
+            text_color=palette["text_primary"],
+            hover_color=palette["border"],
+            height=32,
+            width=90,
+            command=self._open_profile_dialog
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            ctrl_box,
             text="🔄 Refresh",
             font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=palette["accent"],
             hover_color=palette["accent_hover"],
             height=32,
-            width=100,
+            width=90,
             command=lambda: self._refresh_waiter_data(is_periodic=False)
-        ).pack(side="right")
+        ).pack(side="left")
 
         # -------------------------------------------------------------
-        # NEW READY ORDERS ALERT BANNER (Visible when dishes await pickup)
+        # NEW READY ORDERS ALERT BANNER
         # -------------------------------------------------------------
         self.alert_banner = ctk.CTkFrame(self, fg_color="#451A03", corner_radius=8, border_width=1, border_color="#F59E0B")
         self.alert_banner_lbl = ctk.CTkLabel(
@@ -146,7 +414,7 @@ class WaiterDashboardFrame(ctk.CTkFrame):
         self.alert_banner_lbl.pack(padx=14, pady=8)
 
         # -------------------------------------------------------------
-        # SUMMARY KPI METRICS BAR
+        # SUMMARY KPI METRICS BAR (5 Live Metrics)
         # -------------------------------------------------------------
         self.kpi_container = ctk.CTkFrame(self, fg_color="transparent")
         self.kpi_container.pack(fill="x", padx=20, pady=(0, 10))
@@ -154,9 +422,10 @@ class WaiterDashboardFrame(ctk.CTkFrame):
         self.kpi_labels = {}
         kpi_defs = [
             ("ready", "Ready for Pickup", "🔔", "#EF4444"),
-            ("transit", "In Transit (Picked Up)", "🚶", "#F59E0B"),
-            ("served", "Served Today", "✅", "#10B981"),
-            ("tables", "Assigned Tables", "🪑", palette["accent"])
+            ("transit", "In Service (Picked Up)", "🚶", "#F59E0B"),
+            ("served", "Served Orders Today", "✅", "#10B981"),
+            ("tables", "Assigned Tables", "🪑", palette["accent"]),
+            ("requests", "Customer Requests", "🛎️", "#EC4899")
         ]
 
         for key, title, icon, color in kpi_defs:
@@ -168,20 +437,20 @@ class WaiterDashboardFrame(ctk.CTkFrame):
                 border_color=palette["border"],
                 height=65
             )
-            card.pack(side="left", fill="x", expand=True, padx=4)
+            card.pack(side="left", fill="x", expand=True, padx=3)
             card.pack_propagate(False)
 
             inner = ctk.CTkFrame(card, fg_color="transparent")
-            inner.pack(fill="both", expand=True, padx=12, pady=8)
+            inner.pack(fill="both", expand=True, padx=10, pady=8)
 
             left = ctk.CTkFrame(inner, fg_color="transparent")
             left.pack(side="left")
             ctk.CTkLabel(left, text=title, font=ctk.CTkFont(size=10), text_color=palette["text_secondary"]).pack(anchor="w")
-            val_lbl = ctk.CTkLabel(left, text="0", font=ctk.CTkFont(size=16, weight="bold"), text_color=color)
+            val_lbl = ctk.CTkLabel(left, text="0", font=ctk.CTkFont(size=15, weight="bold"), text_color=color)
             val_lbl.pack(anchor="w")
             self.kpi_labels[key] = val_lbl
 
-            ctk.CTkLabel(inner, text=icon, font=ctk.CTkFont(size=20)).pack(side="right")
+            ctk.CTkLabel(inner, text=icon, font=ctk.CTkFont(size=18)).pack(side="right")
 
         # -------------------------------------------------------------
         # FILTER TABS BAR
@@ -192,7 +461,7 @@ class WaiterDashboardFrame(ctk.CTkFrame):
         filter_inner = ctk.CTkFrame(filter_bar, fg_color="transparent")
         filter_inner.pack(fill="x", padx=10, pady=8)
 
-        ctk.CTkLabel(filter_inner, text="Service Queue:", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(side="left", padx=(4, 10))
+        ctk.CTkLabel(filter_inner, text="Floor Queue:", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(side="left", padx=(4, 10))
 
         self.filter_buttons = {}
         filters = [
@@ -201,6 +470,7 @@ class WaiterDashboardFrame(ctk.CTkFrame):
             ("PICKED_UP", "🚶 In Transit"),
             ("SERVED", "✅ Served Today"),
             ("TABLES", "🪑 My Assigned Tables"),
+            ("REQUESTS", "🛎️ Customer Requests"),
             ("HISTORY", "📜 Serving History")
         ]
 
@@ -215,7 +485,7 @@ class WaiterDashboardFrame(ctk.CTkFrame):
                 hover_color=palette["accent_hover"],
                 command=lambda c=code: self._set_filter(c)
             )
-            btn.pack(side="left", padx=3)
+            btn.pack(side="left", padx=2)
             self.filter_buttons[code] = btn
 
         # -------------------------------------------------------------
@@ -227,6 +497,9 @@ class WaiterDashboardFrame(ctk.CTkFrame):
             scrollbar_button_color=palette.get("sidebar_hover", "#292938")
         )
         self.scroll_container.pack(fill="both", expand=True, padx=20, pady=(0, 15))
+
+    def _open_profile_dialog(self):
+        WaiterProfileDialog(self, waiter_id=self.waiter_id, auth_svc=self.auth_svc, waiter_svc=self.waiter_svc)
 
     def _set_filter(self, filter_code: str):
         if self.current_filter == filter_code:
@@ -241,39 +514,46 @@ class WaiterDashboardFrame(ctk.CTkFrame):
         self._rendered_signature = ()
         self._refresh_waiter_data(is_periodic=False)
 
-    def _fetch_queue_data(self) -> Tuple[List[Dict], List[Dict], List[Dict], List[Dict]]:
-        """Queries ready, in-transit, served, and assigned tables."""
-        ready_orders = self.waiter_svc.get_ready_orders()
-        transit_orders = self.waiter_svc.get_picked_up_orders(waiter_id=self.waiter_id)
-        served_orders = self.waiter_svc.get_served_orders(waiter_id=self.waiter_id, limit=30)
-        history_orders = self.waiter_svc.get_serving_history(waiter_id=self.waiter_id, limit=50)
-        return ready_orders, transit_orders, served_orders, history_orders
+    def _fetch_queue_data(self) -> Tuple[List[Dict], List[Dict], List[Dict], List[Dict], List[Dict], List[Dict]]:
+        """Queries ready, in-transit, served, assigned tables, requests, and history."""
+        ready_orders = [dict(o) for o in self.waiter_svc.get_ready_orders(waiter_id=self.waiter_id)]
+        transit_orders = [dict(o) for o in self.waiter_svc.get_picked_up_orders(waiter_id=self.waiter_id)]
+        served_orders = [dict(o) for o in self.waiter_svc.get_served_orders(waiter_id=self.waiter_id, limit=30)]
+        assigned_tables = [dict(t) for t in self.waiter_svc.get_assigned_tables(waiter_id=self.waiter_id)]
+        requests = [dict(r) for r in self.waiter_svc.get_service_requests(waiter_id=self.waiter_id, limit=40)]
+        history_orders = [dict(h) for h in self.waiter_svc.get_serving_history(
+            waiter_id=self.waiter_id,
+            search_query=self._history_search_query if self._history_search_query else None,
+            limit=50
+        )]
+        return ready_orders, transit_orders, served_orders, assigned_tables, requests, history_orders
 
     def _refresh_waiter_data(self, is_periodic: bool = False):
-        """Differential smart refresh that avoids unnecessary UI destruction."""
+        """Differential UI updater preserving scroll and active input focus."""
         if not self._is_active or not self.winfo_exists():
             return
 
-        ready_orders, transit_orders, served_orders, history_orders = self._fetch_queue_data()
-        assigned_tables = self.waiter_svc.get_assigned_tables(self.waiter_id)
-        palette = theme_manager.get_palette()
+        ready_orders, transit_orders, served_orders, assigned_tables, requests, history_orders = self._fetch_queue_data()
 
-        # Update KPI Counts
-        if "ready" in self.kpi_labels and self.kpi_labels["ready"].winfo_exists():
+        # Update KPI labels
+        if "ready" in self.kpi_labels:
             self.kpi_labels["ready"].configure(text=str(len(ready_orders)))
-        if "transit" in self.kpi_labels and self.kpi_labels["transit"].winfo_exists():
+        if "transit" in self.kpi_labels:
             self.kpi_labels["transit"].configure(text=str(len(transit_orders)))
-        if "served" in self.kpi_labels and self.kpi_labels["served"].winfo_exists():
+        if "served" in self.kpi_labels:
             self.kpi_labels["served"].configure(text=str(len(served_orders)))
-        if "tables" in self.kpi_labels and self.kpi_labels["tables"].winfo_exists():
+        if "tables" in self.kpi_labels:
             self.kpi_labels["tables"].configure(text=str(len(assigned_tables)))
+        if "requests" in self.kpi_labels:
+            pending_reqs = sum(1 for r in requests if r["status"] in ("PENDING", "IN_PROGRESS"))
+            self.kpi_labels["requests"].configure(text=str(pending_reqs))
 
-        # Update or toggle alert banner
-        if len(ready_orders) > 0:
+        # Alert banner visibility
+        if ready_orders:
             if not self.alert_banner.winfo_ismapped():
                 self.alert_banner.pack(fill="x", padx=20, pady=(0, 10), before=self.kpi_container)
             self.alert_banner_lbl.configure(
-                text=f"🔔 {len(ready_orders)} ORDER(S) WAITING AT KITCHEN PASS: Please pick up and deliver immediately!"
+                text=f"🔔 {len(ready_orders)} ORDER(S) WAITING AT KITCHEN PASS: Please pick up and deliver to tables immediately!"
             )
         else:
             if self.alert_banner.winfo_ismapped():
@@ -287,6 +567,20 @@ class WaiterDashboardFrame(ctk.CTkFrame):
             self._render_assigned_tables(assigned_tables, current_signature)
             return
 
+        if self.current_filter == "REQUESTS":
+            current_signature = ("REQUESTS", theme_manager.current_theme, tuple((r["id"], r["status"]) for r in requests))
+            if is_periodic and current_signature == self._rendered_signature:
+                return
+            self._render_service_requests(requests, current_signature)
+            return
+
+        if self.current_filter == "HISTORY":
+            current_signature = ("HISTORY", theme_manager.current_theme, self._history_search_query, tuple(o["id"] for o in history_orders))
+            if is_periodic and current_signature == self._rendered_signature:
+                return
+            self._render_serving_history(history_orders, current_signature)
+            return
+
         # Prepare orders list for order views
         if self.current_filter == "ALL":
             active_list = ready_orders + transit_orders
@@ -296,8 +590,6 @@ class WaiterDashboardFrame(ctk.CTkFrame):
             active_list = transit_orders
         elif self.current_filter == "SERVED":
             active_list = served_orders
-        elif self.current_filter == "HISTORY":
-            active_list = history_orders
         else:
             active_list = ready_orders
 
@@ -365,10 +657,11 @@ class WaiterDashboardFrame(ctk.CTkFrame):
             oid = o["id"]
             st = o["status"]
             onum = o["order_number"]
-            tbl = o["table_number"] or "Takeaway"
-            cust = o["customer_name"] or "Guest"
+            tbl = o.get("table_number") or "Takeaway"
+            cust = o.get("customer_name") or "Guest"
             special = (o.get("special_instructions") or "").strip()
-            waiter_disp = o.get("waiter_name") or "Unassigned"
+            waiter_disp = o.get("waiter_name") or "Unassigned Queue"
+            is_unassigned = o.get("waiter_id") is None
 
             # Elapsed timer calculation
             if st == "READY":
@@ -405,7 +698,7 @@ class WaiterDashboardFrame(ctk.CTkFrame):
             ).pack(side="left")
 
             # Status pill
-            pill_color = "#DCFCE7", "#15803D" if st in ("SERVED", "COMPLETED") else (
+            pill_color = ("#DCFCE7", "#15803D") if st in ("SERVED", "COMPLETED") else (
                 ("#FEF3C7", "#B45309") if st == "PICKED_UP" else ("#FEE2E2", "#B91C1C")
             )
             pill = ctk.CTkFrame(c_header, fg_color=pill_color[0], corner_radius=6)
@@ -420,7 +713,8 @@ class WaiterDashboardFrame(ctk.CTkFrame):
             lbl_t.pack(side="left")
             self._card_timer_labels[oid] = (lbl_t, el)
 
-            ctk.CTkLabel(meta, text=f"Guest: {cust}", font=ctk.CTkFont(size=10), text_color=palette["text_secondary"]).pack(side="right")
+            server_badge_col = "#F59E0B" if is_unassigned else palette["text_secondary"]
+            ctk.CTkLabel(meta, text=f"Guest: {cust}  |  {waiter_disp}", font=ctk.CTkFont(size=10), text_color=server_badge_col).pack(side="right")
 
             # Special Notes Banner
             if special:
@@ -440,47 +734,62 @@ class WaiterDashboardFrame(ctk.CTkFrame):
             items_box.pack(fill="x", padx=12, pady=(0, 8))
 
             items = order_repo.get_order_items(oid)
-            for it in items:
+            for it in items[:4]:  # Show first 4 items, full in modal
                 it_row = ctk.CTkFrame(items_box, fg_color="transparent")
-                it_row.pack(fill="x", padx=8, pady=2)
+                it_row.pack(fill="x", padx=8, pady=1)
                 ctk.CTkLabel(
                     it_row,
                     text=f"▫ {it.quantity}x  {it.item_name}",
-                    font=ctk.CTkFont(size=11, weight="bold"),
+                    font=ctk.CTkFont(size=10, weight="bold"),
                     text_color=palette["text_primary"]
                 ).pack(side="left")
 
-            # Action Button Row
+            if len(items) > 4:
+                ctk.CTkLabel(items_box, text=f"... +{len(items)-4} more items", font=ctk.CTkFont(size=9, slant="italic"), text_color=palette["text_secondary"]).pack(padx=8, pady=(0, 2), anchor="w")
+
+            # Action Buttons Row
             btn_row = ctk.CTkFrame(card, fg_color="transparent")
             btn_row.pack(fill="x", padx=12, pady=(0, 10))
+
+            ctk.CTkButton(
+                btn_row,
+                text="🔍 View Details",
+                font=ctk.CTkFont(size=10, weight="bold"),
+                height=28,
+                width=85,
+                fg_color=palette["bg_secondary"],
+                hover_color=palette["border"],
+                text_color=palette["text_primary"],
+                command=lambda od=o: OrderDetailDialog(self, order_data=od, order_svc=self.order_svc)
+            ).pack(side="left", padx=(0, 6))
 
             if st == "READY":
                 ctk.CTkButton(
                     btn_row,
                     text="🚶 Mark as Picked Up",
-                    font=ctk.CTkFont(size=11, weight="bold"),
-                    height=30,
+                    font=ctk.CTkFont(size=10, weight="bold"),
+                    height=28,
                     fg_color="#F59E0B",
                     hover_color="#D97706",
                     command=lambda i=oid: self._action_pick_up(i)
-                ).pack(fill="x")
+                ).pack(side="right", fill="x", expand=True)
             elif st == "PICKED_UP":
                 ctk.CTkButton(
                     btn_row,
                     text="✅ Mark as Served",
-                    font=ctk.CTkFont(size=11, weight="bold"),
-                    height=30,
+                    font=ctk.CTkFont(size=10, weight="bold"),
+                    height=28,
                     fg_color="#10B981",
                     hover_color="#059669",
-                    command=lambda i=oid: self._action_mark_served(i)
-                ).pack(fill="x")
+                    command=lambda i=oid, num=onum, tb=tbl: self._action_mark_served_confirm(i, num, tb)
+                ).pack(side="right", fill="x", expand=True)
             elif st in ("SERVED", "COMPLETED"):
                 ctk.CTkLabel(
                     btn_row,
-                    text="✓ Delivered to Table (Awaiting Counter Billing)",
+                    text="✓ Delivered to Table",
                     font=ctk.CTkFont(size=10, weight="bold"),
                     text_color="#10B981"
-                ).pack(anchor="center", pady=4)
+                ).pack(side="right", padx=6)
 
         # Restore scroll position
         try:
@@ -521,21 +830,249 @@ class WaiterDashboardFrame(ctk.CTkFrame):
             cap = t["capacity"]
             status = t["status"]
             onum = t.get("order_number")
+            ostatus = t.get("order_status")
+            cust = t.get("active_customer_name")
+            req_cnt = t.get("pending_requests_count", 0)
 
-            card = ctk.CTkFrame(grid, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
+            border_col = "#EC4899" if req_cnt > 0 else (palette["accent"] if onum else palette["border"])
+            card = ctk.CTkFrame(grid, fg_color=palette["bg_card"], corner_radius=10, border_width=2 if req_cnt > 0 else 1, border_color=border_col)
             card.grid(row=row_idx, column=col_idx, sticky="nsew", padx=6, pady=6)
 
             c_box = ctk.CTkFrame(card, fg_color="transparent")
             c_box.pack(fill="both", expand=True, padx=12, pady=12)
 
-            ctk.CTkLabel(c_box, text=tbl_num, font=ctk.CTkFont(size=18, weight="bold"), text_color=palette["accent"]).pack(anchor="w")
-            ctk.CTkLabel(c_box, text=f"Zone: {zone}  •  Seats: {cap}", font=ctk.CTkFont(size=11), text_color=palette["text_secondary"]).pack(anchor="w", pady=(2, 6))
+            t_top = ctk.CTkFrame(c_box, fg_color="transparent")
+            t_top.pack(fill="x")
+            ctk.CTkLabel(t_top, text=tbl_num, font=ctk.CTkFont(size=18, weight="bold"), text_color=palette["accent"]).pack(side="left")
 
             status_color = "#10B981" if status == "VACANT" else ("#EF4444" if status == "OCCUPIED" else "#F59E0B")
-            ctk.CTkLabel(c_box, text=f"Status: {status}", font=ctk.CTkFont(size=11, weight="bold"), text_color=status_color).pack(anchor="w")
+            ctk.CTkLabel(t_top, text=status, font=ctk.CTkFont(size=10, weight="bold"), text_color=status_color).pack(side="right")
+
+            ctk.CTkLabel(c_box, text=f"Zone: {zone}  •  Seats: {cap}", font=ctk.CTkFont(size=11), text_color=palette["text_secondary"]).pack(anchor="w", pady=(2, 4))
+
+            if cust:
+                ctk.CTkLabel(c_box, text=f"👤 Guest: {cust}", font=ctk.CTkFont(size=10), text_color=palette["text_primary"]).pack(anchor="w")
 
             if onum:
-                ctk.CTkLabel(c_box, text=f"Active Order: {onum}", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_primary"]).pack(anchor="w", pady=(4, 0))
+                ctk.CTkLabel(c_box, text=f"Active Order: {onum} ({ostatus})", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["accent"]).pack(anchor="w", pady=(2, 0))
+
+            if req_cnt > 0:
+                r_badge = ctk.CTkFrame(c_box, fg_color="#FCE7F3", corner_radius=6)
+                r_badge.pack(fill="x", pady=(6, 0))
+                ctk.CTkLabel(r_badge, text=f"🛎️ {req_cnt} Guest Request Pending", font=ctk.CTkFont(size=10, weight="bold"), text_color="#BE185D").pack(padx=6, pady=2)
+
+    def _render_service_requests(self, requests: List[Dict], signature: Tuple):
+        """Renders the Customer Assistance / Service Requests queue."""
+        for w in self.scroll_container.winfo_children():
+            w.destroy()
+
+        self._rendered_signature = signature
+        palette = theme_manager.get_palette()
+
+        if not requests:
+            empty = ctk.CTkFrame(self.scroll_container, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
+            empty.pack(fill="x", padx=10, pady=40)
+            ctk.CTkLabel(
+                empty,
+                text="🎉 No pending customer service requests! All guest tables are satisfied.",
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color=palette["success"]
+            ).pack(padx=20, pady=30)
+            return
+
+        grid = ctk.CTkFrame(self.scroll_container, fg_color="transparent")
+        grid.pack(fill="both", expand=True)
+        grid.grid_columnconfigure((0, 1), weight=1)
+
+        req_icons = {
+            "Water": "💧",
+            "Extra Cutlery": "🍴",
+            "Napkins": "🧻",
+            "Additional Assistance": "🙋",
+            "Other Customer Request": "📝"
+        }
+
+        for idx, req in enumerate(requests):
+            row_idx = idx // 2
+            col_idx = idx % 2
+
+            rid = req["id"]
+            tbl = req["table_number"]
+            cust = req.get("customer_name") or "Guest Diner"
+            rtype = req["request_type"]
+            notes = req.get("notes") or ""
+            st = req["status"]
+            elapsed = float(req.get("elapsed_mins") or 0.0)
+
+            icon = req_icons.get(rtype, "🛎️")
+            card_border = "#EF4444" if (st == "PENDING" and elapsed > 3.0) else (
+                "#F59E0B" if st == "IN_PROGRESS" else ("#10B981" if st == "RESOLVED" else palette["border"])
+            )
+
+            card = ctk.CTkFrame(grid, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=card_border)
+            card.grid(row=row_idx, column=col_idx, sticky="nsew", padx=6, pady=6)
+
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="both", expand=True, padx=12, pady=10)
+
+            # Top row
+            top = ctk.CTkFrame(inner, fg_color="transparent")
+            top.pack(fill="x")
+
+            ctk.CTkLabel(top, text=f"{icon} {rtype} — {tbl}", font=ctk.CTkFont(size=14, weight="bold"), text_color=palette.get("heading", palette["text_primary"])).pack(side="left")
+
+            st_colors = {
+                "PENDING": ("#FEE2E2", "#B91C1C"),
+                "IN_PROGRESS": ("#FEF3C7", "#B45309"),
+                "RESOLVED": ("#DCFCE7", "#15803D")
+            }
+            bg, fg = st_colors.get(st, ("#F1F5F9", "#475569"))
+            pill = ctk.CTkFrame(top, fg_color=bg, corner_radius=6)
+            pill.pack(side="right")
+            ctk.CTkLabel(pill, text=st, font=ctk.CTkFont(size=9, weight="bold"), text_color=fg).pack(padx=6, pady=2)
+
+            # Meta row
+            meta = ctk.CTkFrame(inner, fg_color="transparent")
+            meta.pack(fill="x", pady=(4, 6))
+
+            el_str = f"⏱️ Requested {int(elapsed)}m ago" if elapsed >= 1.0 else "⏱️ Requested Just now"
+            ctk.CTkLabel(meta, text=el_str, font=ctk.CTkFont(size=10, weight="bold"), text_color="#EF4444" if elapsed > 3.0 and st == "PENDING" else palette["text_secondary"]).pack(side="left")
+            ctk.CTkLabel(meta, text=f"Guest: {cust}", font=ctk.CTkFont(size=10), text_color=palette["text_secondary"]).pack(side="right")
+
+            if notes:
+                ctk.CTkLabel(inner, text=f'"{notes}"', font=ctk.CTkFont(size=11, slant="italic"), text_color=palette["text_primary"], wraplength=400, justify="left").pack(anchor="w", pady=(0, 6))
+
+            # Action Buttons
+            btn_box = ctk.CTkFrame(inner, fg_color="transparent")
+            btn_box.pack(fill="x", pady=(4, 0))
+
+            if st == "PENDING":
+                ctk.CTkButton(
+                    btn_box,
+                    text="Accept Request",
+                    font=ctk.CTkFont(size=10, weight="bold"),
+                    fg_color="#F59E0B",
+                    hover_color="#D97706",
+                    height=28,
+                    command=lambda i=rid: self._action_accept_request(i)
+                ).pack(side="left", padx=(0, 6))
+            elif st == "IN_PROGRESS":
+                ctk.CTkButton(
+                    btn_box,
+                    text="✅ Mark as Resolved",
+                    font=ctk.CTkFont(size=10, weight="bold"),
+                    fg_color="#10B981",
+                    hover_color="#059669",
+                    height=28,
+                    command=lambda i=rid: self._action_resolve_request(i)
+                ).pack(side="left", padx=(0, 6))
+            elif st == "RESOLVED":
+                ctk.CTkLabel(btn_box, text="✓ Request Completed", font=ctk.CTkFont(size=10, weight="bold"), text_color="#10B981").pack(side="left")
+
+    def _render_serving_history(self, history: List[Dict], signature: Tuple):
+        """Renders detailed serving history table with search query filtering."""
+        for w in self.scroll_container.winfo_children():
+            w.destroy()
+
+        self._rendered_signature = signature
+        palette = theme_manager.get_palette()
+
+        # Search Bar
+        search_bar = ctk.CTkFrame(self.scroll_container, fg_color=palette["bg_card"], corner_radius=8, border_width=1, border_color=palette["border"])
+        search_bar.pack(fill="x", padx=10, pady=(0, 10))
+
+        s_inner = ctk.CTkFrame(search_bar, fg_color="transparent")
+        s_inner.pack(fill="x", padx=12, pady=8)
+
+        ctk.CTkLabel(s_inner, text="🔍 Search History:", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(side="left", padx=(0, 8))
+
+        self.ent_search = ctk.CTkEntry(
+            s_inner,
+            placeholder_text="Filter by Order #, Table, or Customer name...",
+            font=ctk.CTkFont(size=11),
+            height=28,
+            width=280
+        )
+        self.ent_search.pack(side="left", padx=(0, 8))
+        if self._history_search_query:
+            self.ent_search.insert(0, self._history_search_query)
+
+        ctk.CTkButton(
+            s_inner,
+            text="Search",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            height=28,
+            width=70,
+            command=self._apply_history_search
+        ).pack(side="left", padx=(0, 4))
+
+        ctk.CTkButton(
+            s_inner,
+            text="Clear",
+            font=ctk.CTkFont(size=10),
+            height=28,
+            width=60,
+            fg_color=palette["bg_secondary"],
+            text_color=palette["text_primary"],
+            command=self._clear_history_search
+        ).pack(side="left")
+
+        if not history:
+            empty = ctk.CTkFrame(self.scroll_container, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
+            empty.pack(fill="x", padx=10, pady=40)
+            ctk.CTkLabel(
+                empty,
+                text="ℹ️ No historical serving records matching this criteria.",
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color=palette["text_secondary"]
+            ).pack(padx=20, pady=30)
+            return
+
+        for o in history:
+            row = ctk.CTkFrame(self.scroll_container, fg_color=palette["bg_card"], corner_radius=8, border_width=1, border_color=palette["border"])
+            row.pack(fill="x", padx=10, pady=3)
+
+            r_in = ctk.CTkFrame(row, fg_color="transparent")
+            r_in.pack(fill="x", padx=14, pady=8)
+
+            left = ctk.CTkFrame(r_in, fg_color="transparent")
+            left.pack(side="left")
+
+            ctk.CTkLabel(
+                left,
+                text=f"Order #{o['order_number']}  •  Table: {o['table_number']}  •  Guest: {o['customer_name'] or 'Guest'}",
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=palette["text_primary"]
+            ).pack(anchor="w")
+
+            dur = o.get("serving_duration_mins")
+            dur_str = f"{dur} mins" if dur is not None and float(dur) >= 0 else "N/A"
+            ctk.CTkLabel(
+                left,
+                text=f"Served at: {o['served_at'] or o['created_at']}  |  Service Duration: {dur_str}  |  Server: {o.get('waiter_name') or 'Floor Waiter'}",
+                font=ctk.CTkFont(size=10),
+                text_color=palette["text_secondary"]
+            ).pack(anchor="w", pady=(1, 0))
+
+            right = ctk.CTkFrame(r_in, fg_color="transparent")
+            right.pack(side="right")
+
+            st = o["status"]
+            st_color = "#10B981" if st == "COMPLETED" else "#6366F1"
+            pill = ctk.CTkFrame(right, fg_color=palette["bg_secondary"], corner_radius=6)
+            pill.pack(side="right")
+            ctk.CTkLabel(pill, text=st, font=ctk.CTkFont(size=10, weight="bold"), text_color=st_color).pack(padx=8, pady=2)
+
+    def _apply_history_search(self):
+        self._history_search_query = self.ent_search.get().strip()
+        self._rendered_signature = ()
+        self._refresh_waiter_data(is_periodic=False)
+
+    def _clear_history_search(self):
+        self._history_search_query = ""
+        self.ent_search.delete(0, "end")
+        self._rendered_signature = ()
+        self._refresh_waiter_data(is_periodic=False)
 
     def _action_pick_up(self, order_id: int):
         """Action: Waiter picks up READY order from kitchen pass."""
@@ -544,9 +1081,32 @@ class WaiterDashboardFrame(ctk.CTkFrame):
             self._rendered_signature = ()
             self._refresh_waiter_data(is_periodic=False)
 
+    def _action_mark_served_confirm(self, order_id: int, order_number: str, table_number: str):
+        """Opens confirmation modal before submitting served status."""
+        ServedConfirmDialog(
+            self,
+            order_number=order_number,
+            table_number=table_number,
+            on_confirm=lambda: self._action_mark_served(order_id)
+        )
+
     def _action_mark_served(self, order_id: int):
         """Action: Waiter delivers order to table."""
         ok, msg = self.order_svc.mark_order_served(order_id, self.waiter_id)
+        if ok:
+            self._rendered_signature = ()
+            self._refresh_waiter_data(is_periodic=False)
+
+    def _action_accept_request(self, request_id: int):
+        """Action: Waiter accepts customer assistance request."""
+        ok, msg = self.waiter_svc.accept_service_request(request_id, self.waiter_id)
+        if ok:
+            self._rendered_signature = ()
+            self._refresh_waiter_data(is_periodic=False)
+
+    def _action_resolve_request(self, request_id: int):
+        """Action: Waiter marks customer assistance request as resolved."""
+        ok, msg = self.waiter_svc.resolve_service_request(request_id, self.waiter_id)
         if ok:
             self._rendered_signature = ()
             self._refresh_waiter_data(is_periodic=False)

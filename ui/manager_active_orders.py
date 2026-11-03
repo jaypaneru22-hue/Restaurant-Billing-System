@@ -8,7 +8,7 @@ from database.db import db
 from repositories.order_repository import OrderRepository
 from repositories.billing_repository import BillingRepository
 from services.order_service import order_service
-from services.waiter_service import waiter_service
+from services.waiter_service import WaiterService, waiter_service
 from utils.window_utils import center_dialog
 from utils.logger import logger
 
@@ -24,7 +24,7 @@ class AssignWaiterDialog(ctk.CTkToplevel):
 
         self.title(f"Assign Waiter — {order_number}")
         self.resizable(False, False)
-        center_dialog(self, master, target_width=380, target_height=260)
+        center_dialog(self, master, target_width=380, target_height=280)
         self.grab_set()
 
         self._build_ui(current_waiter_id)
@@ -47,7 +47,7 @@ class AssignWaiterDialog(ctk.CTkToplevel):
             text_color=palette["text_secondary"]
         ).pack(anchor="w", padx=20, pady=(0, 14))
 
-        waiters = waiter_service.get_all_waiters()
+        waiters = waiter_service.get_all_waiters(active_only=True)
         self.waiter_map = {f"{w.full_name} (@{w.username})": w.id for w in waiters}
         options = ["None (Unassigned)"] + list(self.waiter_map.keys())
 
@@ -67,7 +67,10 @@ class AssignWaiterDialog(ctk.CTkToplevel):
             text_color=palette["text_primary"],
             button_color=palette["accent"]
         )
-        self.menu.pack(fill="x", padx=20, pady=(0, 20))
+        self.menu.pack(fill="x", padx=20, pady=(0, 10))
+
+        self.lbl_error = ctk.CTkLabel(self, text="", font=ctk.CTkFont(size=10, weight="bold"), text_color="#EF4444")
+        self.lbl_error.pack(padx=20, pady=(0, 8))
 
         btn_row = ctk.CTkFrame(self, fg_color="transparent")
         btn_row.pack(fill="x", padx=20, pady=(0, 15))
@@ -96,17 +99,115 @@ class AssignWaiterDialog(ctk.CTkToplevel):
     def _handle_save(self):
         sel_text = self.opt_var.get()
         selected_id = self.waiter_map.get(sel_text, None)
-        try:
-            db.execute("UPDATE orders SET waiter_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;", (selected_id, self.order_id))
-            db.execute(
-                """INSERT INTO audit_logs (username, action, module, details)
-                   VALUES ('Manager', 'ASSIGN_WAITER', 'FLOOR_ORDERS', ?);""",
-                (f"Assigned waiter id={selected_id} to Order #{self.order_id}",)
-            )
+        ok, msg = order_service.assign_waiter_to_order(self.order_id, selected_id)
+        if ok:
+            try:
+                db.execute(
+                    "INSERT INTO audit_logs (username, action, module, details) VALUES ('manager', 'WAITER_ASSIGNED', 'OPERATIONS', ?);",
+                    (f"Order #{self.order_number} assigned to server ID {selected_id}",)
+                )
+            except Exception:
+                pass
             self.on_assigned()
             self.destroy()
-        except Exception as e:
-            logger.error(f"Error saving waiter assignment: {e}")
+        else:
+            self.lbl_error.configure(text=msg)
+
+
+class WaiterWorkloadDialog(ctk.CTkToplevel):
+    """Modal displaying real-time floor staff allocation, assigned tables, and active delivery load."""
+
+    def __init__(self, master, waiter_svc: WaiterService = waiter_service, **kwargs):
+        super().__init__(master, **kwargs)
+        self.waiter_svc = waiter_svc
+        self.title("RestoPro — Floor Staff Workload Monitor")
+        self.resizable(False, False)
+        center_dialog(self, master, target_width=640, target_height=480, min_width=600, min_height=420)
+        self.grab_set()
+        self._build_ui()
+
+    def _build_ui(self):
+        palette = theme_manager.get_palette()
+        self.configure(fg_color=palette["bg_primary"])
+
+        card = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
+        card.pack(fill="both", expand=True, padx=16, pady=16)
+
+        head = ctk.CTkFrame(card, fg_color="transparent")
+        head.pack(fill="x", padx=16, pady=(16, 10))
+
+        ctk.CTkLabel(
+            head,
+            text="👥 Waiter Floor Allocation & Workload Monitor",
+            font=ctk.CTkFont(size=16, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(side="left")
+
+        # Scrollable list
+        scroll = ctk.CTkScrollableFrame(card, fg_color=palette["bg_secondary"], corner_radius=8, height=300)
+        scroll.pack(fill="both", expand=True, padx=16, pady=(0, 14))
+
+        summary = self.waiter_svc.get_waiter_workload_summary()
+        if not summary:
+            ctk.CTkLabel(
+                scroll,
+                text="ℹ️ No floor servers currently registered in the database.",
+                font=ctk.CTkFont(size=12),
+                text_color=palette["text_secondary"]
+            ).pack(pady=40)
+        else:
+            for w in summary:
+                row = ctk.CTkFrame(scroll, fg_color=palette["bg_card"], corner_radius=8, border_width=1, border_color=palette["border"])
+                row.pack(fill="x", padx=8, pady=4)
+
+                r_inner = ctk.CTkFrame(row, fg_color="transparent")
+                r_inner.pack(fill="x", padx=12, pady=10)
+
+                left = ctk.CTkFrame(r_inner, fg_color="transparent")
+                left.pack(side="left")
+
+                status_dot = "🟢" if w["is_active"] else "🔴"
+                ctk.CTkLabel(
+                    left,
+                    text=f"{status_dot} {w['full_name']} (@{w['username']})",
+                    font=ctk.CTkFont(size=13, weight="bold"),
+                    text_color=palette["text_primary"]
+                ).pack(anchor="w")
+
+                status_text = "Active Account" if w["is_active"] else "Inactive / Deactivated"
+                ctk.CTkLabel(
+                    left,
+                    text=f"Role: WAITER  |  Status: {status_text}",
+                    font=ctk.CTkFont(size=10),
+                    text_color=palette["text_secondary"]
+                ).pack(anchor="w", pady=(1, 0))
+
+                right = ctk.CTkFrame(r_inner, fg_color="transparent")
+                right.pack(side="right")
+
+                stats = [
+                    (f"🪑 Tables: {w['assigned_tables']}", palette["accent"]),
+                    (f"🚶 In Service: {w['in_transit']}", "#F59E0B"),
+                    (f"✅ Served: {w['served_today']}", "#10B981"),
+                    (f"🛎️ Requests: {w['open_requests']}", "#EC4899")
+                ]
+                for s_text, col in stats:
+                    pill = ctk.CTkFrame(right, fg_color=palette["bg_secondary"], corner_radius=6)
+                    pill.pack(side="left", padx=3)
+                    ctk.CTkLabel(pill, text=s_text, font=ctk.CTkFont(size=10, weight="bold"), text_color=col).pack(padx=6, pady=2)
+
+        ctk.CTkButton(
+            card,
+            text="Close (Esc)",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            height=32,
+            command=self.destroy
+        ).pack(side="bottom", fill="x", padx=16, pady=(0, 16))
+
+        self.bind("<Escape>", lambda e: self.destroy())
+
 
 
 class ManagerActiveOrdersFrame(ctk.CTkFrame):
@@ -161,6 +262,17 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
         # Controls Right
         ctrl_box = ctk.CTkFrame(header, fg_color="transparent")
         ctrl_box.pack(side="right")
+
+        ctk.CTkButton(
+            ctrl_box,
+            text="👥 Waiter Workload",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["bg_card"],
+            text_color=palette["text_primary"],
+            hover_color=palette["border"],
+            height=32,
+            command=lambda: WaiterWorkloadDialog(self)
+        ).pack(side="left", padx=(0, 8))
 
         ctk.CTkButton(
             ctrl_box,

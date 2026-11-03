@@ -8,7 +8,131 @@ from database.db import db
 from services.auth_service import auth_service
 from services.menu_service import menu_service
 from services.order_service import order_service
+from services.waiter_service import waiter_service
+from utils.window_utils import center_dialog
 from utils.logger import logger
+
+
+class CustomerAssistanceDialog(ctk.CTkToplevel):
+    """Allows dining customers to request floor table assistance (Water, Cutlery, Napkins, etc.)."""
+
+    def __init__(
+        self,
+        master,
+        table_number: str,
+        order_id: Optional[int],
+        customer_id: int,
+        customer_name: str,
+        on_submitted: Optional[Callable[[], None]] = None,
+        **kwargs
+    ):
+        super().__init__(master, **kwargs)
+        self.table_number = table_number
+        self.order_id = order_id
+        self.customer_id = customer_id
+        self.customer_name = customer_name
+        self.on_submitted = on_submitted
+
+        self.title("Request Floor Service Assistance")
+        self.resizable(False, False)
+        center_dialog(self, master, target_width=440, target_height=420, min_width=400, min_height=380)
+        self.grab_set()
+
+        palette = theme_manager.get_palette()
+        self.configure(fg_color=palette["bg_primary"])
+
+        card = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
+        card.pack(fill="both", expand=True, padx=16, pady=16)
+
+        ctk.CTkLabel(
+            card,
+            text=f"🛎️ Request Table Service — {self.table_number}",
+            font=ctk.CTkFont(size=15, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(anchor="w", padx=16, pady=(16, 4))
+
+        ctk.CTkLabel(
+            card,
+            text="Need something at your dining table? Select an assistance type:",
+            font=ctk.CTkFont(size=11),
+            text_color=palette["text_secondary"]
+        ).pack(anchor="w", padx=16, pady=(0, 12))
+
+        # Request types
+        self.req_type_var = ctk.StringVar(value="Water")
+        options = [
+            ("💧 Water", "Water"),
+            ("🍴 Extra Cutlery", "Extra Cutlery"),
+            ("🧻 Napkins", "Napkins"),
+            ("🙋 Additional Assistance", "Additional Assistance"),
+            ("📝 Other Request", "Other Customer Request")
+        ]
+
+        opt_frame = ctk.CTkFrame(card, fg_color="transparent")
+        opt_frame.pack(fill="x", padx=16, pady=(0, 10))
+
+        for label, val in options:
+            ctk.CTkRadioButton(
+                opt_frame,
+                text=label,
+                value=val,
+                variable=self.req_type_var,
+                font=ctk.CTkFont(size=11),
+                text_color=palette["text_primary"]
+            ).pack(anchor="w", pady=3)
+
+        ctk.CTkLabel(card, text="Additional Notes (Optional):", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"]).pack(anchor="w", padx=16, pady=(4, 2))
+        self.ent_notes = ctk.CTkEntry(card, placeholder_text="e.g. Warm water, extra fork, spicy chutney...", font=ctk.CTkFont(size=11), height=30)
+        self.ent_notes.pack(fill="x", padx=16, pady=(0, 14))
+
+        self.lbl_status = ctk.CTkLabel(card, text="", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["success"])
+        self.lbl_status.pack(padx=16, pady=(0, 8))
+
+        btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        btn_row.pack(fill="x", padx=16, pady=(0, 12))
+
+        ctk.CTkButton(
+            btn_row,
+            text="Cancel",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["bg_secondary"],
+            text_color=palette["text_primary"],
+            hover_color=palette["border"],
+            height=32,
+            width=90,
+            command=self.destroy
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            btn_row,
+            text="Send Request",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            height=32,
+            width=130,
+            command=self._handle_send
+        ).pack(side="right")
+
+    def _handle_send(self):
+        req_type = self.req_type_var.get()
+        notes = self.ent_notes.get().strip()
+
+        ok, msg, req_id = waiter_service.create_service_request(
+            table_number=self.table_number,
+            request_type=req_type,
+            notes=notes,
+            order_id=self.order_id,
+            customer_id=self.customer_id,
+            customer_name=self.customer_name
+        )
+        if ok:
+            self.lbl_status.configure(text="✓ Server notified! Request is in queue.")
+            self.after(1000, self.destroy)
+            if self.on_submitted:
+                self.on_submitted()
+        else:
+            self.lbl_status.configure(text=f"Failed: {msg}", text_color="#EF4444")
 
 
 class CustomerPortalFrame(ctk.CTkFrame):
@@ -198,6 +322,34 @@ class CustomerPortalFrame(ctk.CTkFrame):
                 col_color = palette["accent"] if is_curr else (palette["success"] if is_done else palette["text_secondary"])
 
                 ctk.CTkLabel(col, text=f"{mark} {s_name}", font=ctk.CTkFont(size=10, weight="bold" if is_curr else "normal"), text_color=col_color).pack(anchor="center")
+
+            # Assistance & Actions Bar
+            t_bot = ctk.CTkFrame(t_card, fg_color="transparent")
+            t_bot.pack(fill="x", padx=16, pady=(0, 10))
+
+            ctk.CTkLabel(
+                t_bot,
+                text=f"ℹ️ {s_desc}",
+                font=ctk.CTkFont(size=11),
+                text_color=palette["text_secondary"]
+            ).pack(side="left")
+
+            ctk.CTkButton(
+                t_bot,
+                text="🛎️ Call Waiter / Request Service",
+                font=ctk.CTkFont(size=11, weight="bold"),
+                fg_color=palette["accent"],
+                hover_color=palette["accent_hover"],
+                height=30,
+                command=lambda act=active_order: CustomerAssistanceDialog(
+                    self,
+                    table_number=act["table_number"],
+                    order_id=act["id"],
+                    customer_id=user_id,
+                    customer_name=self.user.full_name if self.user else "Guest Diner",
+                    on_submitted=self._load_customer_data
+                )
+            ).pack(side="right")
 
         # 2. Load historical orders strictly isolated to this customer
         for w in self.history_scroll.winfo_children():

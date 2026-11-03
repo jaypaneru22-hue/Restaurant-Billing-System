@@ -136,11 +136,23 @@ class OrderService:
             return True, f"Order status updated to {target_status}."
         return False, "Failed to update order status."
 
-    def assign_waiter_to_order(self, order_id: int, waiter_id: int) -> Tuple[bool, str]:
-        """Assigns a floor waiter to an active order."""
+    def assign_waiter_to_order(self, order_id: int, waiter_id: Optional[int]) -> Tuple[bool, str]:
+        """Assigns a floor waiter to an active order, validating waiter status."""
         order = self.order_repo.get_by_id(order_id)
         if not order:
             return False, "Order not found."
+
+        if waiter_id is not None:
+            from repositories.user_repository import UserRepository
+            user_repo = UserRepository(self.order_repo.db)
+            waiter_user = user_repo.get_by_id(waiter_id)
+            if not waiter_user:
+                return False, "Selected waiter user not found."
+            if not waiter_user.is_active:
+                return False, f"Cannot assign order to inactive account '{waiter_user.username}'."
+            if not waiter_user.is_waiter():
+                return False, f"User '{waiter_user.username}' does not hold the WAITER role."
+
         ok = self.order_repo.assign_waiter(order_id, waiter_id)
         if ok:
             logger.info(f"Assigned waiter id={waiter_id} to order id={order_id}.")
@@ -158,6 +170,14 @@ class OrderService:
         ok = self.order_repo.mark_picked_up(order_id, waiter_id)
         if ok:
             logger.info(f"Order id={order_id} marked as PICKED_UP by waiter id={waiter_id}.")
+            try:
+                from database.db import db
+                db.execute(
+                    "INSERT INTO audit_logs (username, action, module, details) VALUES (?, 'ORDER_PICKED_UP', 'SERVICE', ?);",
+                    (order.waiter_name or f"waiter_{waiter_id}", f"Collected Order #{order.order_number} from kitchen pass")
+                )
+            except Exception:
+                pass
             return True, f"Order #{order.order_number} picked up from kitchen pass."
         return False, "Failed to mark order as picked up."
 
@@ -172,6 +192,14 @@ class OrderService:
         ok = self.order_repo.mark_served(order_id, waiter_id)
         if ok:
             logger.info(f"Order id={order_id} marked as SERVED by waiter id={waiter_id}.")
+            try:
+                from database.db import db
+                db.execute(
+                    "INSERT INTO audit_logs (username, action, module, details) VALUES (?, 'ORDER_SERVED', 'SERVICE', ?);",
+                    (order.waiter_name or f"waiter_{waiter_id}", f"Delivered Order #{order.order_number} to table {order.table_number}")
+                )
+            except Exception:
+                pass
             return True, f"Order #{order.order_number} served to table {order.table_number}."
         return False, "Failed to mark order as served."
 

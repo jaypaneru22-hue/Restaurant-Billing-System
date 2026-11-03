@@ -391,6 +391,7 @@ class MainWindow(ctk.CTkFrame):
                 ("dashboard", "🍽️ Waiter Dashboard", "Alt+D"),
                 ("active_orders", "🔔 Ready to Serve", "Alt+A"),
                 ("tables", "🪑 Assigned Tables", "Alt+T"),
+                ("requests", "🛎️ Customer Requests", "Alt+C"),
                 ("orders_history", "📜 Serving History", "Alt+O"),
                 ("profile", "👤 My Profile", "Alt+P"),
             ]
@@ -564,7 +565,7 @@ class MainWindow(ctk.CTkFrame):
             "users", "roles", "restaurant", "billing_cfg", "database", "system_health", "chef_kds"
         ]
         chef_allowed = ["dashboard", "active_orders", "food_availability", "orders_history", "profile"]
-        waiter_allowed = ["dashboard", "active_orders", "tables", "orders_history", "profile"]
+        waiter_allowed = ["dashboard", "active_orders", "tables", "requests", "orders_history", "profile"]
         customer_allowed = ["dashboard", "orders", "orders_history", "feedback", "profile"]
 
         if self.user_role == "CASHIER" and view_name in cashier_disallowed:
@@ -594,6 +595,8 @@ class MainWindow(ctk.CTkFrame):
                 self.current_view = WaiterDashboardFrame(self.content_container, waiter_id=w_id, initial_filter="READY")
             elif view_name == "tables":
                 self.current_view = WaiterDashboardFrame(self.content_container, waiter_id=w_id, initial_filter="TABLES")
+            elif view_name == "requests":
+                self.current_view = WaiterDashboardFrame(self.content_container, waiter_id=w_id, initial_filter="REQUESTS")
             elif view_name == "orders_history":
                 self.current_view = WaiterDashboardFrame(self.content_container, waiter_id=w_id, initial_filter="HISTORY")
             elif view_name == "profile":

@@ -67,7 +67,7 @@ class TableActionDialog(ctk.CTkToplevel):
 
         # Assigned Waiter Selector
         ctk.CTkLabel(form, text="Assigned Floor Waiter:", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_primary"]).pack(anchor="w", padx=14, pady=(0, 2))
-        self.waiters_list = waiter_service.get_all_waiters()
+        self.waiters_list = waiter_service.get_all_waiters(active_only=True)
         self.waiter_options = ["None (Unassigned)"] + [f"{w.full_name} (@{w.username})" for w in self.waiters_list]
         self.waiter_map = {f"{w.full_name} (@{w.username})": w.id for w in self.waiters_list}
 
@@ -143,6 +143,12 @@ class TableActionDialog(ctk.CTkToplevel):
 
         sel_waiter_str = self.waiter_var.get()
         selected_waiter_id = self.waiter_map.get(sel_waiter_str, None)
+
+        if selected_waiter_id is not None:
+            ok, msg = waiter_service.assign_table_to_waiter(self.table["table_number"], selected_waiter_id)
+            if not ok:
+                self.lbl_error.configure(text=msg)
+                return
 
         try:
             db.execute(
