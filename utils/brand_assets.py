@@ -6,7 +6,7 @@ and manages memory caching for both Midnight Obsidian Dark Mode and Light Mode.
 from pathlib import Path
 from typing import Optional, Tuple
 import sys
-from PIL import Image
+from PIL import Image, ImageDraw
 import customtkinter as ctk
 
 from config.settings import ASSETS_DIR
@@ -18,6 +18,7 @@ LOGO_JPG_PATH = ASSETS_DIR / "restopro_logo.jpg"
 ICON_PATH = ASSETS_DIR / "restopro_icon.png"
 ICON_ICO_PATH = ASSETS_DIR / "restopro_icon.ico"
 LOGO_TRANSPARENT_PATH = ASSETS_DIR / "restopro_logo_transparent.png"
+AMBIENCE_PATH = ASSETS_DIR / "restaurant_ambience.jpg"
 
 # Original dimensions of supplied asset
 ORIGINAL_LOGO_WIDTH = 1024
@@ -129,6 +130,72 @@ def _get_resampled_pil(file_path: Path, width: int, height: int) -> Image.Image:
         resampled = img.resize((width, height), Image.Resampling.LANCZOS)
         _PIL_CACHE[cache_key] = resampled
         return resampled
+
+
+def get_ambience_banner(
+    width: int,
+    height: int,
+    is_dark: bool = True,
+) -> Optional[ctk.CTkImage]:
+    """Returns a cinematic restaurant ambience banner with a dark overlay gradient.
+
+    Crops to fill the target dimensions (center-crop), then composites a
+    dark obsidian gradient overlay so text placed on top remains readable.
+    Caches results in memory for instant theme toggles.
+    """
+    cache_key = ("ambience", width, height, is_dark)
+    if cache_key in _IMAGE_CACHE:
+        return _IMAGE_CACHE[cache_key]
+
+    src = AMBIENCE_PATH
+    if not src.exists():
+        logger.warning(f"Restaurant ambience image not found at {src}")
+        return None
+
+    try:
+        raw = Image.open(src).convert("RGB")
+        orig_w, orig_h = raw.size
+        aspect_target = width / height
+        aspect_orig = orig_w / orig_h
+
+        # Center-crop to target aspect ratio, then resize
+        if aspect_orig > aspect_target:
+            new_w = int(orig_h * aspect_target)
+            left = (orig_w - new_w) // 2
+            cropped = raw.crop((left, 0, left + new_w, orig_h))
+        else:
+            new_h = int(orig_w / aspect_target)
+            top = (orig_h - new_h) // 2
+            cropped = raw.crop((0, top, orig_w, top + new_h))
+
+        resized = cropped.resize((width, height), Image.Resampling.LANCZOS)
+
+        # Overlay dark obsidian gradient (top→bottom increasing opacity)
+        overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+        for y in range(height):
+            ratio = y / height
+            if is_dark:
+                alpha = int(165 + (230 - 165) * ratio)
+                color = (11, 11, 20, alpha)
+            else:
+                alpha = int(140 + (210 - 140) * ratio)
+                color = (20, 25, 50, alpha)
+            draw.line([(0, y), (width, y)], fill=color)
+
+        base_rgba = resized.convert("RGBA")
+        composited = Image.alpha_composite(base_rgba, overlay).convert("RGB")
+
+        ctk_img = ctk.CTkImage(
+            light_image=composited,
+            dark_image=composited,
+            size=(width, height),
+        )
+        _IMAGE_CACHE[cache_key] = ctk_img
+        return ctk_img
+    except Exception as e:
+        logger.error(f"Failed to create ambience banner: {e}")
+        return None
 
 
 def apply_window_icon(window: ctk.CTk | ctk.CTkToplevel) -> bool:
