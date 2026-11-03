@@ -66,7 +66,7 @@ def test_clean_demo_preserves_master_seeds(tmp_path, monkeypatch):
 
     # Verify master users and menu items are preserved
     cur.execute("SELECT COUNT(*) FROM users;")
-    assert cur.fetchone()[0] == 5  # Preserves all 5 seeded roles
+    assert cur.fetchone()[0] == 6  # Preserves all 6 seeded roles (including waiter)
     cur.execute("SELECT COUNT(*) FROM menu_items;")
     assert cur.fetchone()[0] == 26
     conn.close()

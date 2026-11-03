@@ -25,7 +25,14 @@ class OrderRepository:
 
     def get_by_id(self, order_id: int) -> Optional[Order]:
         order_row = self.db.fetchone(
-            "SELECT id, order_number, user_id, table_number, customer_name, status, special_instructions, created_at, updated_at FROM orders WHERE id = ?;",
+            """
+            SELECT o.id, o.order_number, o.user_id, o.table_number, o.customer_name,
+                   o.status, o.special_instructions, o.waiter_id, o.picked_up_at, o.served_at,
+                   o.created_at, o.updated_at, u.full_name as waiter_name
+            FROM orders o
+            LEFT JOIN users u ON o.waiter_id = u.id
+            WHERE o.id = ?;
+            """,
             (order_id,)
         )
         if not order_row:
@@ -40,6 +47,10 @@ class OrderRepository:
             customer_name=order_row["customer_name"],
             status=order_row["status"],
             special_instructions=special_instructions,
+            waiter_id=order_row["waiter_id"] if "waiter_id" in order_row.keys() else None,
+            waiter_name=order_row["waiter_name"] if "waiter_name" in order_row.keys() else None,
+            picked_up_at=order_row["picked_up_at"] if "picked_up_at" in order_row.keys() else None,
+            served_at=order_row["served_at"] if "served_at" in order_row.keys() else None,
             created_at=order_row["created_at"],
             updated_at=order_row["updated_at"],
             items=items
@@ -143,19 +154,72 @@ class OrderRepository:
             )
             return cursor.rowcount > 0
 
-    def list_orders(self, status: Optional[str] = None, limit: int = 50, user_id: Optional[int] = None) -> List[Order]:
-        sql = "SELECT id, order_number, user_id, table_number, customer_name, status, special_instructions, created_at, updated_at FROM orders"
+    def assign_waiter(self, order_id: int, waiter_id: int) -> bool:
+        """Assigns or reassigns a waiter to an order."""
+        with self.db.transaction() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE orders SET waiter_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;",
+                (waiter_id, order_id)
+            )
+            return cursor.rowcount > 0
+
+    def mark_picked_up(self, order_id: int, waiter_id: int) -> bool:
+        """Marks an order as PICKED_UP by waiter."""
+        with self.db.transaction() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE orders
+                SET status = 'PICKED_UP', waiter_id = ?, picked_up_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?;
+                """,
+                (waiter_id, order_id)
+            )
+            return cursor.rowcount > 0
+
+    def mark_served(self, order_id: int, waiter_id: int) -> bool:
+        """Marks an order as SERVED by waiter."""
+        with self.db.transaction() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                UPDATE orders
+                SET status = 'SERVED', waiter_id = ?, served_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?;
+                """,
+                (waiter_id, order_id)
+            )
+            return cursor.rowcount > 0
+
+    def list_orders(
+        self,
+        status: Optional[str] = None,
+        limit: int = 50,
+        user_id: Optional[int] = None,
+        waiter_id: Optional[int] = None
+    ) -> List[Order]:
+        sql = """
+            SELECT o.id, o.order_number, o.user_id, o.table_number, o.customer_name,
+                   o.status, o.special_instructions, o.waiter_id, o.picked_up_at, o.served_at,
+                   o.created_at, o.updated_at, u.full_name as waiter_name
+            FROM orders o
+            LEFT JOIN users u ON o.waiter_id = u.id
+        """
         conditions = []
         params = []
         if status and status.strip():
-            conditions.append("status = ?")
+            conditions.append("o.status = ?")
             params.append(status.upper())
         if user_id is not None:
-            conditions.append("user_id = ?")
+            conditions.append("o.user_id = ?")
             params.append(user_id)
+        if waiter_id is not None:
+            conditions.append("o.waiter_id = ?")
+            params.append(waiter_id)
         if conditions:
             sql += " WHERE " + " AND ".join(conditions)
-        sql += " ORDER BY id DESC LIMIT ?;"
+        sql += " ORDER BY o.id DESC LIMIT ?;"
         params.append(limit)
         rows = self.db.fetchall(sql, tuple(params))
         orders = []
@@ -169,8 +233,15 @@ class OrderRepository:
                 customer_name=r["customer_name"],
                 status=r["status"],
                 special_instructions=r["special_instructions"] if "special_instructions" in r.keys() and r["special_instructions"] else "",
+                waiter_id=r["waiter_id"] if "waiter_id" in r.keys() else None,
+                waiter_name=r["waiter_name"] if "waiter_name" in r.keys() else None,
+                picked_up_at=r["picked_up_at"] if "picked_up_at" in r.keys() else None,
+                served_at=r["served_at"] if "served_at" in r.keys() else None,
                 created_at=r["created_at"],
                 updated_at=r["updated_at"],
                 items=items
             ))
         return orders
+
+
+order_repository = OrderRepository()

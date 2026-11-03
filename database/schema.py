@@ -48,9 +48,13 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_name TEXT DEFAULT 'Walk-in Customer',
     status TEXT NOT NULL DEFAULT 'PENDING',
     special_instructions TEXT DEFAULT '',
+    waiter_id INTEGER,
+    picked_up_at TIMESTAMP,
+    served_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (waiter_id) REFERENCES users(id)
 );
 
 -- Order items with historical price and name snapshot protection
@@ -91,8 +95,10 @@ CREATE TABLE IF NOT EXISTS restaurant_tables (
     capacity INTEGER NOT NULL DEFAULT 4,
     status TEXT NOT NULL DEFAULT 'VACANT',
     active_order_id INTEGER,
+    waiter_id INTEGER,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (active_order_id) REFERENCES orders(id)
+    FOREIGN KEY (active_order_id) REFERENCES orders(id),
+    FOREIGN KEY (waiter_id) REFERENCES users(id)
 );
 
 -- Performance and reporting indexes

@@ -59,7 +59,7 @@ class StaffDialog(ctk.CTkToplevel):
 
         # Role
         ctk.CTkLabel(form, text="Assigned System Role *", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", palette["text_primary"])).pack(anchor="w", padx=20, pady=(0, 2))
-        self.combo_role = ctk.CTkComboBox(form, values=["CASHIER", "MANAGER", "ADMIN"], height=34)
+        self.combo_role = ctk.CTkComboBox(form, values=["CASHIER", "WAITER", "CHEF", "MANAGER", "ADMIN"], height=34)
         self.combo_role.pack(fill="x", padx=20, pady=(0, 10))
         if self.user:
             self.combo_role.set(self.user.role)
@@ -357,7 +357,7 @@ class UserManagementFrame(ctk.CTkFrame):
         ctk.CTkLabel(f_inner, text="Role:", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(side="left", padx=(0, 4))
         self.combo_role_filter = ctk.CTkComboBox(
             f_inner,
-            values=["All Roles", "ADMIN", "MANAGER", "CASHIER", "CHEF", "CUSTOMER"],
+            values=["All Roles", "ADMIN", "MANAGER", "CASHIER", "CHEF", "WAITER", "CUSTOMER"],
             width=125,
             height=32,
             command=lambda v: self._apply_filters()
@@ -469,6 +469,7 @@ class UserManagementFrame(ctk.CTkFrame):
             "MANAGER": ("#2563EB", "#EFF6FF"),
             "CASHIER": ("#0284C7", "#F0F9FF"),
             "CHEF": ("#2563EB", "#EFF6FF"),
+            "WAITER": ("#D97706", "#FFFBEB"),
             "CUSTOMER": ("#0D9488", "#F0FDFA"),
         }
 

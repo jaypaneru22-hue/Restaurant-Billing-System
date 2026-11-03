@@ -4,6 +4,7 @@ import customtkinter as ctk
 
 from ui.theme_manager import theme_manager
 from database.db import db
+from services.waiter_service import waiter_service
 from utils.window_utils import center_dialog
 from utils.logger import logger
 
@@ -64,6 +65,31 @@ class TableActionDialog(ctk.CTkToplevel):
         self.entry_cap.insert(0, str(self.table["capacity"]))
         self.entry_cap.pack(fill="x", padx=14, pady=(0, 10))
 
+        # Assigned Waiter Selector
+        ctk.CTkLabel(form, text="Assigned Floor Waiter:", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_primary"]).pack(anchor="w", padx=14, pady=(0, 2))
+        self.waiters_list = waiter_service.get_all_waiters()
+        self.waiter_options = ["None (Unassigned)"] + [f"{w.full_name} (@{w.username})" for w in self.waiters_list]
+        self.waiter_map = {f"{w.full_name} (@{w.username})": w.id for w in self.waiters_list}
+
+        current_waiter_id = self.table.get("waiter_id")
+        initial_waiter = "None (Unassigned)"
+        if current_waiter_id:
+            match = next((w for w in self.waiters_list if w.id == current_waiter_id), None)
+            if match:
+                initial_waiter = f"{match.full_name} (@{match.username})"
+
+        self.waiter_var = ctk.StringVar(value=initial_waiter)
+        waiter_menu = ctk.CTkOptionMenu(
+            form,
+            variable=self.waiter_var,
+            values=self.waiter_options,
+            height=32,
+            fg_color=palette["bg_secondary"],
+            text_color=palette["text_primary"],
+            button_color=palette["accent"]
+        )
+        waiter_menu.pack(fill="x", padx=14, pady=(0, 10))
+
         # Error notification strip
         self.lbl_error = ctk.CTkLabel(form, text="", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["danger"], wraplength=380)
         self.lbl_error.pack(fill="x", padx=14, pady=(0, 4))
@@ -115,17 +141,26 @@ class TableActionDialog(ctk.CTkToplevel):
                 self.lbl_error.configure(text=f"Cannot vacate table: Active Order #{active_orders[0]['order_number']} is still unsettled!")
                 return
 
+        sel_waiter_str = self.waiter_var.get()
+        selected_waiter_id = self.waiter_map.get(sel_waiter_str, None)
+
         try:
             db.execute(
                 """UPDATE restaurant_tables
-                   SET status = ?, capacity = ?, updated_at = CURRENT_TIMESTAMP
+                   SET status = ?, capacity = ?, waiter_id = ?, updated_at = CURRENT_TIMESTAMP
                    WHERE id = ?;""",
-                (new_status, new_cap, self.table["id"])
+                (new_status, new_cap, selected_waiter_id, self.table["id"])
             )
+            # If table has active order, update order's waiter_id too
+            if selected_waiter_id:
+                db.execute(
+                    "UPDATE orders SET waiter_id = ?, updated_at = CURRENT_TIMESTAMP WHERE table_number = ? AND status NOT IN ('COMPLETED', 'CANCELLED');",
+                    (selected_waiter_id, self.table["table_number"])
+                )
             db.execute(
                 """INSERT INTO audit_logs (username, action, module, details)
                    VALUES ('FloorManager', 'UPDATE_TABLE_STATUS', 'TABLES', ?);""",
-                (f"Table {self.table['table_number']} status updated to {new_status} (Cap: {new_cap})",)
+                (f"Table {self.table['table_number']} status updated to {new_status} (Cap: {new_cap}, Waiter: {selected_waiter_id})",)
             )
             self.on_saved()
             self.destroy()
@@ -243,7 +278,13 @@ class TableManagementFrame(ctk.CTkFrame):
         palette = theme_manager.get_palette()
 
         try:
-            sql = "SELECT id, table_number, zone, capacity, status, active_order_id, updated_at FROM restaurant_tables ORDER BY zone, table_number;"
+            sql = """
+                SELECT t.id, t.table_number, t.zone, t.capacity, t.status, t.active_order_id,
+                       t.waiter_id, t.updated_at, u.full_name as waiter_name
+                FROM restaurant_tables t
+                LEFT JOIN users u ON t.waiter_id = u.id
+                ORDER BY t.zone, t.table_number;
+            """
             all_tables = db.fetchall(sql)
         except Exception as e:
             logger.error(f"Error querying restaurant_tables: {e}")
@@ -347,6 +388,14 @@ class TableManagementFrame(ctk.CTkFrame):
                 text=f"Zone: {t['zone']}  •  Cap: {t['capacity']} Pax",
                 font=ctk.CTkFont(size=10),
                 text_color=palette["text_secondary"]
+            ).pack(anchor="w", padx=12, pady=(0, 2))
+
+            waiter_display = t["waiter_name"] if t["waiter_name"] else "Unassigned"
+            ctk.CTkLabel(
+                card,
+                text=f"Server: {waiter_display}",
+                font=ctk.CTkFont(size=10, weight="bold"),
+                text_color=palette["accent"] if t["waiter_name"] else palette["text_secondary"]
             ).pack(anchor="w", padx=12, pady=(0, 6))
 
             # Query active order for this table if any

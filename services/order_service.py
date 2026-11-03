@@ -118,15 +118,62 @@ class OrderService:
         return False, "Failed to cancel order."
 
     def update_order_status(self, order_id: int, status: str) -> Tuple[bool, str]:
-        """Updates the status of an order (e.g. ACCEPTED, PREPARING, READY, COMPLETED)."""
+        """Updates the status of an order with lifecycle validation."""
         order = self.order_repo.get_by_id(order_id)
         if not order:
             return False, "Order not found."
-        success = self.order_repo.update_status(order_id, status.upper())
+        target_status = status.upper()
+
+        # Lifecycle protection rules
+        if target_status == "PICKED_UP" and order.status != "READY":
+            return False, f"Cannot pick up order in '{order.status}' status. Order must be READY."
+        if target_status == "SERVED" and order.status != "PICKED_UP":
+            return False, f"Cannot serve order in '{order.status}' status. Order must be PICKED_UP first."
+
+        success = self.order_repo.update_status(order_id, target_status)
         if success:
-            logger.info(f"Order id={order_id} status updated to {status.upper()}.")
-            return True, f"Order status updated to {status.upper()}."
+            logger.info(f"Order id={order_id} status updated to {target_status}.")
+            return True, f"Order status updated to {target_status}."
         return False, "Failed to update order status."
+
+    def assign_waiter_to_order(self, order_id: int, waiter_id: int) -> Tuple[bool, str]:
+        """Assigns a floor waiter to an active order."""
+        order = self.order_repo.get_by_id(order_id)
+        if not order:
+            return False, "Order not found."
+        ok = self.order_repo.assign_waiter(order_id, waiter_id)
+        if ok:
+            logger.info(f"Assigned waiter id={waiter_id} to order id={order_id}.")
+            return True, f"Waiter assigned to Order #{order.order_number}."
+        return False, "Failed to assign waiter."
+
+    def mark_order_picked_up(self, order_id: int, waiter_id: int) -> Tuple[bool, str]:
+        """Action: Waiter picks up READY order from kitchen pass (READY -> PICKED_UP)."""
+        order = self.order_repo.get_by_id(order_id)
+        if not order:
+            return False, "Order not found."
+        if order.status != "READY":
+            return False, f"Order #{order.order_number} cannot be picked up because status is '{order.status}' (expected READY)."
+
+        ok = self.order_repo.mark_picked_up(order_id, waiter_id)
+        if ok:
+            logger.info(f"Order id={order_id} marked as PICKED_UP by waiter id={waiter_id}.")
+            return True, f"Order #{order.order_number} picked up from kitchen pass."
+        return False, "Failed to mark order as picked up."
+
+    def mark_order_served(self, order_id: int, waiter_id: int) -> Tuple[bool, str]:
+        """Action: Waiter delivers order to dining customer (PICKED_UP -> SERVED)."""
+        order = self.order_repo.get_by_id(order_id)
+        if not order:
+            return False, "Order not found."
+        if order.status != "PICKED_UP":
+            return False, f"Order #{order.order_number} cannot be marked served because status is '{order.status}' (expected PICKED_UP)."
+
+        ok = self.order_repo.mark_served(order_id, waiter_id)
+        if ok:
+            logger.info(f"Order id={order_id} marked as SERVED by waiter id={waiter_id}.")
+            return True, f"Order #{order.order_number} served to table {order.table_number}."
+        return False, "Failed to mark order as served."
 
     def get_order_subtotal(self, order: Order) -> Decimal:
         """Calculates total value of items in order using Decimal."""
@@ -135,8 +182,14 @@ class OrderService:
     def get_order(self, order_id: int) -> Optional[Order]:
         return self.order_repo.get_by_id(order_id)
 
-    def list_orders(self, status: Optional[str] = None, limit: int = 50, user_id: Optional[int] = None) -> List[Order]:
-        return self.order_repo.list_orders(status=status, limit=limit, user_id=user_id)
+    def list_orders(
+        self,
+        status: Optional[str] = None,
+        limit: int = 50,
+        user_id: Optional[int] = None,
+        waiter_id: Optional[int] = None
+    ) -> List[Order]:
+        return self.order_repo.list_orders(status=status, limit=limit, user_id=user_id, waiter_id=waiter_id)
 
     def get_customer_orders(self, user_id: int, limit: int = 50) -> List[Order]:
         """Returns orders strictly belonging to the specified customer."""

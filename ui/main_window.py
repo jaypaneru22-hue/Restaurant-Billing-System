@@ -21,6 +21,7 @@ from ui.feedback import CustomerFeedbackFrame
 from ui.shift_monitoring import ShiftMonitoringFrame
 from ui.shift_summary import ShiftSummaryFrame
 from ui.chef_kds import ChefKDSFrame
+from ui.waiter_dashboard import WaiterDashboardFrame
 from ui.table_management import TableManagementFrame
 from ui.customer_portal import CustomerPortalFrame
 from services.auth_service import AuthService, auth_service
@@ -133,6 +134,7 @@ class MainWindow(ctk.CTkFrame):
                 "MANAGER": ("#451A03", "#FCD34D") if is_dark else ("#FEF3C7", "#B45309"),
                 "CASHIER": ("#052E16", "#6EE7B7") if is_dark else ("#DCFCE7", "#15803D"),
                 "CHEF": ("#1E1B4B", "#93C5FD") if is_dark else ("#DBEAFE", "#1D4ED8"),
+                "WAITER": ("#451A03", "#F59E0B") if is_dark else ("#FEF3C7", "#D97706"),
                 "CUSTOMER": ("#042F2E", "#5EEAD4") if is_dark else ("#CCFBF1", "#0F766E"),
             }
             bg_col, txt_col = role_colors.get(self.user_role, ("#1E1E2A", "#F5F5F7") if is_dark else ("#F1F5F9", "#334155"))
@@ -205,6 +207,7 @@ class MainWindow(ctk.CTkFrame):
             "MANAGER": ("#451A03", "#FCD34D") if is_dark else ("#FEF3C7", "#B45309"),
             "CASHIER": ("#052E16", "#6EE7B7") if is_dark else ("#DCFCE7", "#15803D"),
             "CHEF": ("#1E1B4B", "#93C5FD") if is_dark else ("#DBEAFE", "#1D4ED8"),
+            "WAITER": ("#451A03", "#F59E0B") if is_dark else ("#FEF3C7", "#D97706"),
             "CUSTOMER": ("#042F2E", "#5EEAD4") if is_dark else ("#CCFBF1", "#0F766E"),
         }
         bg_col, txt_col = role_colors.get(self.user_role, ("#1E1E2A", "#F5F5F7") if is_dark else ("#F1F5F9", "#334155"))
@@ -285,6 +288,9 @@ class MainWindow(ctk.CTkFrame):
         elif self.user_role == "CHEF":
             head_title = "KITCHEN (KDS)"
             head_sub = "Live Order Dispatch"
+        elif self.user_role == "WAITER":
+            head_title = "FLOOR SERVICE"
+            head_sub = "Waiter Terminal"
         elif self.user_role == "CUSTOMER":
             head_title = "CUSTOMER DINING"
             head_sub = "Menu & Reviews"
@@ -379,6 +385,14 @@ class MainWindow(ctk.CTkFrame):
                 ("food_availability", "🚫 86 Stockout List", "Alt+F"),
                 ("orders_history", "📜 Prepared Orders", "Alt+O"),
                 ("profile", "👤 Chef Profile", "Alt+P"),
+            ]
+        elif self.user_role == "WAITER":
+            nav_items = [
+                ("dashboard", "🍽️ Waiter Dashboard", "Alt+D"),
+                ("active_orders", "🔔 Ready to Serve", "Alt+A"),
+                ("tables", "🪑 Assigned Tables", "Alt+T"),
+                ("orders_history", "📜 Serving History", "Alt+O"),
+                ("profile", "👤 My Profile", "Alt+P"),
             ]
         elif self.user_role == "CUSTOMER":
             nav_items = [
@@ -550,6 +564,7 @@ class MainWindow(ctk.CTkFrame):
             "users", "roles", "restaurant", "billing_cfg", "database", "system_health", "chef_kds"
         ]
         chef_allowed = ["dashboard", "active_orders", "food_availability", "orders_history", "profile"]
+        waiter_allowed = ["dashboard", "active_orders", "tables", "orders_history", "profile"]
         customer_allowed = ["dashboard", "orders", "orders_history", "feedback", "profile"]
 
         if self.user_role == "CASHIER" and view_name in cashier_disallowed:
@@ -557,6 +572,8 @@ class MainWindow(ctk.CTkFrame):
         elif self.user_role == "MANAGER" and view_name in manager_disallowed:
             view_name = "dashboard"
         elif self.user_role == "CHEF" and view_name not in chef_allowed:
+            view_name = "dashboard"
+        elif self.user_role == "WAITER" and view_name not in waiter_allowed:
             view_name = "dashboard"
         elif self.user_role == "CUSTOMER" and view_name not in customer_allowed:
             view_name = "dashboard"
@@ -571,6 +588,18 @@ class MainWindow(ctk.CTkFrame):
         # Instantiate new view with role context
         if self.user_role == "CHEF" and view_name in ["dashboard", "active_orders"]:
             self.current_view = ChefKDSFrame(self.content_container)
+        elif self.user_role == "WAITER":
+            w_id = self.user.id if self.user else None
+            if view_name == "active_orders":
+                self.current_view = WaiterDashboardFrame(self.content_container, waiter_id=w_id, initial_filter="READY")
+            elif view_name == "tables":
+                self.current_view = WaiterDashboardFrame(self.content_container, waiter_id=w_id, initial_filter="TABLES")
+            elif view_name == "orders_history":
+                self.current_view = WaiterDashboardFrame(self.content_container, waiter_id=w_id, initial_filter="HISTORY")
+            elif view_name == "profile":
+                self.current_view = ProfileFrame(self.content_container, initial_tab="profile")
+            else:
+                self.current_view = WaiterDashboardFrame(self.content_container, waiter_id=w_id, initial_filter="ALL")
         elif self.user_role == "CUSTOMER" and view_name == "dashboard":
             self.current_view = CustomerPortalFrame(
                 self.content_container,

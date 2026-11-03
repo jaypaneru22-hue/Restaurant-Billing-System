@@ -132,7 +132,7 @@ class CustomerPortalFrame(ctk.CTkFrame):
         active_order = db.fetchone(
             """SELECT o.id, o.order_number, o.table_number, o.status, o.created_at
                FROM orders o
-               WHERE o.user_id = ? AND o.status IN ('PENDING', 'ACCEPTED', 'PREPARING', 'READY')
+               WHERE o.user_id = ? AND o.status IN ('PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'PICKED_UP', 'SERVED')
                ORDER BY o.id DESC LIMIT 1;""",
             (user_id,)
         )
@@ -158,7 +158,9 @@ class CustomerPortalFrame(ctk.CTkFrame):
                 "PENDING": ("#DBEAFE", "#1D4ED8", "Placed & Waiting Confirmation"),
                 "ACCEPTED": ("#EDE9FE", "#6D28D9", "Order Accepted by Kitchen"),
                 "PREPARING": ("#FEF3C7", "#B45309", "Chef Cooking in Kitchen"),
-                "READY": ("#DCFCE7", "#15803D", "Food Ready at Counter / Table")
+                "READY": ("#DCFCE7", "#15803D", "Food Ready for Server Pickup"),
+                "PICKED_UP": ("#FEF9C3", "#A16207", "Server Collected from Kitchen"),
+                "SERVED": ("#D1FAE5", "#047857", "Delivered & Served to Table")
             }
             s_bg, s_fg, s_desc = st_colors.get(active_order["status"], ("#F1F5F9", "#475569", active_order["status"]))
 
@@ -171,7 +173,15 @@ class CustomerPortalFrame(ctk.CTkFrame):
             timeline.pack(fill="x", padx=16, pady=(0, 10))
 
             steps = ["Placed", "Accepted", "Preparing", "Ready", "Served"]
-            active_step_map = {"PENDING": 0, "ACCEPTED": 1, "PREPARING": 2, "READY": 3, "COMPLETED": 4}
+            active_step_map = {
+                "PENDING": 0,
+                "ACCEPTED": 1,
+                "PREPARING": 2,
+                "READY": 3,
+                "PICKED_UP": 3,
+                "SERVED": 4,
+                "COMPLETED": 4
+            }
             current_step_idx = active_step_map.get(active_order["status"], 0)
 
             t_row = ctk.CTkFrame(timeline, fg_color="transparent")

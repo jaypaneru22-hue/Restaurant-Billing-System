@@ -29,6 +29,9 @@ class User:
     def is_chef(self) -> bool:
         return self.role.upper() == "CHEF"
 
+    def is_waiter(self) -> bool:
+        return self.role.upper() == "WAITER"
+
     def is_customer(self) -> bool:
         return self.role.upper() == "CUSTOMER"
 

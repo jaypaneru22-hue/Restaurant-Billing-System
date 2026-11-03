@@ -115,6 +115,18 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     order_cols = {r[1] for r in cursor.fetchall()}
     if "special_instructions" not in order_cols:
         cursor.execute("ALTER TABLE orders ADD COLUMN special_instructions TEXT DEFAULT '';")
+    if "waiter_id" not in order_cols:
+        cursor.execute("ALTER TABLE orders ADD COLUMN waiter_id INTEGER REFERENCES users(id);")
+    if "picked_up_at" not in order_cols:
+        cursor.execute("ALTER TABLE orders ADD COLUMN picked_up_at TIMESTAMP;")
+    if "served_at" not in order_cols:
+        cursor.execute("ALTER TABLE orders ADD COLUMN served_at TIMESTAMP;")
+
+    # 1c. Add waiter_id to restaurant_tables if missing
+    cursor.execute("PRAGMA table_info(restaurant_tables);")
+    table_cols = {r[1] for r in cursor.fetchall()}
+    if "waiter_id" not in table_cols:
+        cursor.execute("ALTER TABLE restaurant_tables ADD COLUMN waiter_id INTEGER REFERENCES users(id);")
 
     # 2. Restaurant Profile & Legal Info
     cursor.execute("""
@@ -261,6 +273,16 @@ def run_migrations(conn: sqlite3.Connection) -> None:
         )
         m_id = cursor.lastrowid
         cursor.execute("INSERT INTO user_settings (user_id, theme, currency) VALUES (?, 'dark', '₹');", (m_id,))
+
+    if "WAITER" not in existing_roles:
+        waiter_hash = hash_password("Waiter@123")
+        cursor.execute(
+            """INSERT INTO users (username, password_hash, full_name, role, is_active)
+               VALUES ('waiter1', ?, 'Floor Server (Rahul Sharma)', 'WAITER', 1);""",
+            (waiter_hash,)
+        )
+        w_id = cursor.lastrowid
+        cursor.execute("INSERT INTO user_settings (user_id, theme, currency) VALUES (?, 'dark', '₹');", (w_id,))
 
     cursor.execute("SELECT COUNT(*) FROM customer_feedback;")
     if cursor.fetchone()[0] == 0:

@@ -1,5 +1,5 @@
 """Manager Active Orders Live Floor & Kitchen Monitor."""
-from typing import Callable, Optional
+from typing import Callable, Optional, List, Dict
 from datetime import datetime
 import customtkinter as ctk
 
@@ -7,7 +7,106 @@ from ui.theme_manager import theme_manager
 from database.db import db
 from repositories.order_repository import OrderRepository
 from repositories.billing_repository import BillingRepository
+from services.order_service import order_service
+from services.waiter_service import waiter_service
+from utils.window_utils import center_dialog
 from utils.logger import logger
+
+
+class AssignWaiterDialog(ctk.CTkToplevel):
+    """Modal dialog allowing Manager to assign or reassign a waiter to an active order."""
+
+    def __init__(self, master, order_id: int, order_number: str, current_waiter_id: Optional[int], on_assigned: Callable, **kwargs):
+        super().__init__(master, **kwargs)
+        self.order_id = order_id
+        self.order_number = order_number
+        self.on_assigned = on_assigned
+
+        self.title(f"Assign Waiter — {order_number}")
+        self.resizable(False, False)
+        center_dialog(self, master, target_width=380, target_height=260)
+        self.grab_set()
+
+        self._build_ui(current_waiter_id)
+
+    def _build_ui(self, current_waiter_id: Optional[int]):
+        palette = theme_manager.get_palette()
+        self.configure(fg_color=palette["bg_primary"])
+
+        ctk.CTkLabel(
+            self,
+            text=f"👤 Assign Waiter to Order #{self.order_number}",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            text_color=palette.get("heading", palette["text_primary"])
+        ).pack(anchor="w", padx=20, pady=(18, 4))
+
+        ctk.CTkLabel(
+            self,
+            text="Select an active floor server responsible for delivering this order:",
+            font=ctk.CTkFont(size=11),
+            text_color=palette["text_secondary"]
+        ).pack(anchor="w", padx=20, pady=(0, 14))
+
+        waiters = waiter_service.get_all_waiters()
+        self.waiter_map = {f"{w.full_name} (@{w.username})": w.id for w in waiters}
+        options = ["None (Unassigned)"] + list(self.waiter_map.keys())
+
+        initial_val = "None (Unassigned)"
+        if current_waiter_id:
+            m = next((w for w in waiters if w.id == current_waiter_id), None)
+            if m:
+                initial_val = f"{m.full_name} (@{m.username})"
+
+        self.opt_var = ctk.StringVar(value=initial_val)
+        self.menu = ctk.CTkOptionMenu(
+            self,
+            variable=self.opt_var,
+            values=options,
+            height=34,
+            fg_color=palette["bg_secondary"],
+            text_color=palette["text_primary"],
+            button_color=palette["accent"]
+        )
+        self.menu.pack(fill="x", padx=20, pady=(0, 20))
+
+        btn_row = ctk.CTkFrame(self, fg_color="transparent")
+        btn_row.pack(fill="x", padx=20, pady=(0, 15))
+
+        ctk.CTkButton(
+            btn_row,
+            text="Cancel",
+            width=90,
+            height=32,
+            fg_color=palette["bg_secondary"],
+            text_color=palette["text_primary"],
+            command=self.destroy
+        ).pack(side="right", padx=(8, 0))
+
+        ctk.CTkButton(
+            btn_row,
+            text="💾 Save Assignment",
+            width=130,
+            height=32,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette["accent"],
+            hover_color=palette["accent_hover"],
+            command=self._handle_save
+        ).pack(side="right")
+
+    def _handle_save(self):
+        sel_text = self.opt_var.get()
+        selected_id = self.waiter_map.get(sel_text, None)
+        try:
+            db.execute("UPDATE orders SET waiter_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;", (selected_id, self.order_id))
+            db.execute(
+                """INSERT INTO audit_logs (username, action, module, details)
+                   VALUES ('Manager', 'ASSIGN_WAITER', 'FLOOR_ORDERS', ?);""",
+                (f"Assigned waiter id={selected_id} to Order #{self.order_id}",)
+            )
+            self.on_assigned()
+            self.destroy()
+        except Exception as e:
+            logger.error(f"Error saving waiter assignment: {e}")
 
 
 class ManagerActiveOrdersFrame(ctk.CTkFrame):
@@ -28,7 +127,7 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
         theme_manager.unsubscribe(self.on_theme_changed)
         super().destroy()
 
-    def on_theme_changed(self, _theme: str):
+    def on_theme_changed(self, theme_name: str):
         if self.winfo_exists():
             palette = theme_manager.get_palette()
             self.configure(fg_color=palette["bg_primary"])
@@ -38,7 +137,7 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
         palette = theme_manager.get_palette()
         self.configure(fg_color=palette["bg_primary"])
 
-        # Header Frame
+        # Top Header Bar
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=20, pady=(15, 8))
 
@@ -47,48 +146,51 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
 
         ctk.CTkLabel(
             title_box,
-            text="⚡ Live Active Orders & Kitchen Display",
+            text="⚡ Live Active Orders & Floor Monitor",
             font=ctk.CTkFont(size=20, weight="bold"),
             text_color=palette.get("heading", palette["text_primary"])
         ).pack(anchor="w")
 
         ctk.CTkLabel(
             title_box,
-            text="Real-time kitchen order dispatch, course progression, and table delivery tracking.",
+            text="Real-time monitor of active table orders, kitchen ticket progression, and floor waiter assignments.",
             font=ctk.CTkFont(size=11),
             text_color=palette["text_secondary"]
         ).pack(anchor="w", pady=(2, 0))
 
-        # Right header controls
+        # Controls Right
         ctrl_box = ctk.CTkFrame(header, fg_color="transparent")
         ctrl_box.pack(side="right")
 
         ctk.CTkButton(
             ctrl_box,
-            text="🔄 Refresh Floor",
+            text="🔄 Refresh",
             font=ctk.CTkFont(size=11, weight="bold"),
             fg_color=palette["accent"],
             hover_color=palette["accent_hover"],
             height=32,
-            width=120,
+            width=100,
             command=self._load_active_orders
-        ).pack(side="right", padx=4)
+        ).pack(side="right")
 
-        # KPI Summary Cards
+        # KPI Metrics Summary Bar
         self.kpi_container = ctk.CTkFrame(self, fg_color="transparent")
         self.kpi_container.pack(fill="x", padx=20, pady=(0, 10))
 
-        # Filter Pills Bar
+        # Filter Segmented Tabs Bar
         filter_bar = ctk.CTkFrame(self, fg_color="transparent")
         filter_bar.pack(fill="x", padx=20, pady=(0, 10))
 
         self.filter_buttons = {}
         for key, label in [
-            ("ALL", "All Active Orders"),
-            ("PENDING", "🟡 In Queue / Pending"),
-            ("PREPARING", "👨‍🍳 In Preparation"),
+            ("ALL", "📋 All Active"),
+            ("PENDING", "🟡 In Kitchen"),
+            ("PREPARING", "👨‍🍳 Cooking"),
             ("READY", "🔔 Ready to Serve"),
-            ("COMPLETED", "✅ Settle Pending")
+            ("DELAYED", "⚠️ Delayed Ready (>5m)"),
+            ("PICKED_UP", "🚶 In Transit"),
+            ("SERVED", "✅ Served"),
+            ("COMPLETED", "💳 Settle Pending")
         ]:
             btn = ctk.CTkButton(
                 filter_bar,
@@ -102,7 +204,7 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
                 hover_color=palette["accent_hover"],
                 command=lambda k=key: self._set_filter(k)
             )
-            btn.pack(side="left", padx=4)
+            btn.pack(side="left", padx=3)
             self.filter_buttons[key] = btn
 
         # Orders Scrollable Grid
@@ -126,18 +228,21 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
     def _load_active_orders(self):
         palette = theme_manager.get_palette()
 
-        # Query active orders (status in PENDING, PREPARING, READY, or COMPLETED without settled bill)
         try:
             rows = db.fetchall("""
-                SELECT o.id, o.order_number, o.table_number, o.customer_name, o.status, o.created_at,
+                SELECT o.id, o.order_number, o.table_number, o.customer_name, o.status, o.created_at, o.updated_at,
+                       o.waiter_id, o.picked_up_at, o.served_at, o.special_instructions,
                        u.full_name as server_name,
+                       w.full_name as waiter_name,
                        (SELECT COUNT(*) FROM order_items WHERE order_id = o.id) as item_count,
                        (SELECT SUM(line_total) FROM order_items WHERE order_id = o.id) as total_val,
-                       (SELECT id FROM bills WHERE order_id = o.id) as bill_id
+                       (SELECT id FROM bills WHERE order_id = o.id) as bill_id,
+                       (julianday('now', 'localtime') - julianday(o.updated_at)) * 24 * 60 as elapsed_ready_mins
                 FROM orders o
                 LEFT JOIN users u ON o.user_id = u.id
+                LEFT JOIN users w ON o.waiter_id = w.id
                 WHERE o.status != 'CANCELLED'
-                ORDER BY o.id DESC LIMIT 40;
+                ORDER BY o.id DESC LIMIT 50;
             """)
         except Exception as e:
             logger.error(f"Error querying active orders: {e}")
@@ -150,6 +255,8 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
         pending_cnt = len([r for r in rows if r["status"] == "PENDING"])
         preparing_cnt = len([r for r in rows if r["status"] == "PREPARING"])
         ready_cnt = len([r for r in rows if r["status"] == "READY"])
+        delayed_cnt = len([r for r in rows if r["status"] == "READY" and float(r["elapsed_ready_mins"] or 0) >= 5.0])
+        transit_cnt = len([r for r in rows if r["status"] == "PICKED_UP"])
 
         # Render KPI Cards
         for widget in self.kpi_container.winfo_children():
@@ -160,6 +267,8 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
             ("Kitchen Queue", str(pending_cnt), "🟡", "#F59E0B"),
             ("Cooking / Prep", str(preparing_cnt), "👨‍🍳", "#EC4899"),
             ("Ready to Serve", str(ready_cnt), "🔔", "#10B981"),
+            ("Delayed Ready (>5m)", str(delayed_cnt), "⚠️", "#EF4444" if delayed_cnt > 0 else palette["text_secondary"]),
+            ("In Transit", str(transit_cnt), "🚶", "#8B5CF6"),
         ]
 
         for title, val, icon, accent_col in kpi_specs:
@@ -180,7 +289,7 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
             left = ctk.CTkFrame(inner, fg_color="transparent")
             left.pack(side="left")
             ctk.CTkLabel(left, text=title, font=ctk.CTkFont(size=10), text_color=palette["text_secondary"]).pack(anchor="w")
-            ctk.CTkLabel(left, text=val, font=ctk.CTkFont(size=16, weight="bold"), text_color=palette.get("heading", palette["text_primary"])).pack(anchor="w")
+            ctk.CTkLabel(left, text=val, font=ctk.CTkFont(size=16, weight="bold"), text_color=accent_col).pack(anchor="w")
 
             ctk.CTkLabel(inner, text=icon, font=ctk.CTkFont(size=18)).pack(side="right")
 
@@ -197,6 +306,7 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
         for o in self.all_orders:
             st = o["status"]
             has_bill = bool(o["bill_id"])
+            elapsed_ready = float(o["elapsed_ready_mins"] or 0.0)
 
             if self.current_filter == "ALL":
                 if not has_bill:
@@ -206,6 +316,12 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
             elif self.current_filter == "PREPARING" and st == "PREPARING":
                 filtered.append(o)
             elif self.current_filter == "READY" and st == "READY":
+                filtered.append(o)
+            elif self.current_filter == "DELAYED" and (st == "READY" and elapsed_ready >= 5.0):
+                filtered.append(o)
+            elif self.current_filter == "PICKED_UP" and st == "PICKED_UP":
+                filtered.append(o)
+            elif self.current_filter == "SERVED" and st == "SERVED":
                 filtered.append(o)
             elif self.current_filter == "COMPLETED" and (st == "COMPLETED" or has_bill):
                 filtered.append(o)
@@ -221,15 +337,17 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
             ).pack(padx=20, pady=30)
             return
 
-        # Render 2-column or 3-column grid of Order Cards
         grid_frame = ctk.CTkFrame(self.scroll_container, fg_color="transparent")
         grid_frame.pack(fill="both", expand=True)
         grid_frame.columnconfigure((0, 1), weight=1)
 
         status_colors = {
             "PENDING": ("#FEF3C7", "#D97706"),
+            "ACCEPTED": ("#EDE9FE", "#6D28D9"),
             "PREPARING": ("#FCE7F3", "#DB2777"),
             "READY": ("#D1FAE5", "#059669"),
+            "PICKED_UP": ("#FEF3C7", "#B45309"),
+            "SERVED": ("#DCFCE7", "#15803D"),
             "COMPLETED": ("#EEF2FF", "#4F46E5"),
             "CANCELLED": ("#FEE2E2", "#DC2626")
         }
@@ -245,14 +363,19 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
             st = ord_row["status"]
             created = ord_row["created_at"] or ""
             server = ord_row["server_name"] or "Staff"
+            waiter = ord_row["waiter_name"] or "Unassigned"
             total_val = ord_row["total_val"] or 0.0
+            elapsed_ready = float(ord_row["elapsed_ready_mins"] or 0.0)
+            is_delayed_ready = (st == "READY" and elapsed_ready >= 5.0)
+
+            border_col = "#EF4444" if is_delayed_ready else palette["border"]
 
             card = ctk.CTkFrame(
                 grid_frame,
                 fg_color=palette["bg_card"],
                 corner_radius=10,
-                border_width=1,
-                border_color=palette["border"]
+                border_width=2 if is_delayed_ready else 1,
+                border_color=border_col
             )
             card.grid(row=row_idx, column=col_idx, sticky="nsew", padx=6, pady=6)
 
@@ -273,7 +396,12 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
             pill.pack(side="right")
             ctk.CTkLabel(pill, text=st, font=ctk.CTkFont(size=9, weight="bold"), text_color=s_fg).pack(padx=6, pady=2)
 
-            # Sub-info: Customer & Server
+            if is_delayed_ready:
+                del_pill = ctk.CTkFrame(c_header, fg_color="#FEE2E2", corner_radius=6)
+                del_pill.pack(side="right", padx=(0, 6))
+                ctk.CTkLabel(del_pill, text=f"⚠️ {int(elapsed_ready)}m unserved", font=ctk.CTkFont(size=9, weight="bold"), text_color="#EF4444").pack(padx=6, pady=2)
+
+            # Sub-info: Customer, Server & Assigned Waiter
             meta_box = ctk.CTkFrame(card, fg_color="transparent")
             meta_box.pack(fill="x", padx=12, pady=(0, 6))
             ctk.CTkLabel(
@@ -283,7 +411,16 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
                 text_color=palette["text_secondary"]
             ).pack(anchor="w")
 
-            # Fetch line items for this order
+            w_row = ctk.CTkFrame(card, fg_color="transparent")
+            w_row.pack(fill="x", padx=12, pady=(0, 6))
+            ctk.CTkLabel(
+                w_row,
+                text=f"Assigned Waiter: {waiter}",
+                font=ctk.CTkFont(size=10, weight="bold"),
+                text_color=palette["accent"] if ord_row["waiter_name"] else palette["text_secondary"]
+            ).pack(side="left")
+
+            # Fetch line items
             items_box = ctk.CTkFrame(card, fg_color=palette["bg_secondary"], corner_radius=6)
             items_box.pack(fill="x", padx=12, pady=(0, 8))
 
@@ -311,13 +448,27 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
             btn_box = ctk.CTkFrame(act_row, fg_color="transparent")
             btn_box.pack(side="right")
 
+            # Reassign / Assign Waiter Button
+            ctk.CTkButton(
+                btn_box,
+                text="👤 Assign Waiter",
+                font=ctk.CTkFont(size=10, weight="bold"),
+                height=26,
+                fg_color=palette["bg_secondary"],
+                hover_color=palette["border"],
+                text_color=palette["text_primary"],
+                command=lambda i=oid, num=onum, wid=ord_row["waiter_id"]: AssignWaiterDialog(
+                    self, order_id=i, order_number=num, current_waiter_id=wid, on_assigned=self._load_active_orders
+                )
+            ).pack(side="left", padx=2)
+
             if st == "PENDING":
                 ctk.CTkButton(
                     btn_box,
                     text="👨‍🍳 Prep",
                     font=ctk.CTkFont(size=10, weight="bold"),
                     height=26,
-                    width=65,
+                    width=60,
                     fg_color="#F59E0B",
                     hover_color="#D97706",
                     command=lambda i=oid: self._update_order_status(i, "PREPARING")
@@ -329,7 +480,7 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
                     text="🔔 Ready",
                     font=ctk.CTkFont(size=10, weight="bold"),
                     height=26,
-                    width=65,
+                    width=60,
                     fg_color="#10B981",
                     hover_color="#059669",
                     command=lambda i=oid: self._update_order_status(i, "READY")
@@ -341,7 +492,7 @@ class ManagerActiveOrdersFrame(ctk.CTkFrame):
                     text="💳 Settle",
                     font=ctk.CTkFont(size=10, weight="bold"),
                     height=26,
-                    width=65,
+                    width=60,
                     fg_color=palette["accent"],
                     hover_color=palette["accent_hover"],
                     command=lambda i=oid: self._trigger_settle(i)
