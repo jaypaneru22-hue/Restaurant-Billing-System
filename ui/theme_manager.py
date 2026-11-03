@@ -38,12 +38,13 @@ class ThemeManager:
     def apply_theme(self, theme_name: str, user_id: Optional[int] = None) -> None:
         """Sets appearance mode, updates state, persists preference, and notifies listeners."""
         clean_theme = theme_name.lower().strip()
-        if clean_theme not in ["dark", "light"]:
+        if clean_theme not in ["dark", "light", "obsidian_orange"]:
             clean_theme = "dark"
 
         self._current_theme = clean_theme
         try:
-            ctk.set_appearance_mode(clean_theme)
+            ctk_mode = "light" if clean_theme == "light" else "dark"
+            ctk.set_appearance_mode(ctk_mode)
         except Exception as e:
             logger.debug(f"GUI appearance mode set (headless or non-tk): {e}")
 

@@ -93,6 +93,54 @@ THEME_PALETTES = {
         "danger_light": "#450A0A",
         "border": "#292938",
     },
+    "obsidian_orange": {
+        # Foodix-inspired Obsidian Orange Palette
+        "app_bg": "#0B0806",
+        "bg_primary": "#120E0C",
+        "bg_secondary": "#1A1513",
+        "bg_card": "#1A1513",
+        "bg_card_elevated": "#241D1A",
+        "bg_card_subtle": "#1A1513",
+
+        # Sidebar (Deep Obsidian Charcoal with warm orange highlight)
+        "sidebar_bg": "#100D0B",
+        "sidebar_secondary": "#1A1513",
+        "sidebar_hover": "#241D1A",
+        "sidebar_active": "#FF5B1E",
+        "sidebar_text": "#F5F2F0",
+        "sidebar_text_muted": "#A3948E",
+        "sidebar_border": "#2E2521",
+
+        # Header Bar
+        "header_bg": "#120E0C",
+        "header_text": "#F5F2F0",
+        "header_border": "#2E2521",
+
+        # Typography
+        "heading": "#FFFFFF",
+        "section_heading": "#F5F2F0",
+        "form_label": "#F5F2F0",
+        "body": "#F5F2F0",
+        "text_primary": "#F5F2F0",
+        "text_secondary": "#A3948E",
+        "text_muted": "#7A6B65",
+
+        # Accents & Interactive (Vibrant Coral / Warm Amber Orange)
+        "accent": "#FF5B1E",
+        "accent_hover": "#FF753F",
+        "accent_light": "#241D1A",
+        "accent_secondary": "#FF8A50",
+        "electric_blue": "#FF5B1E",
+
+        # Status & Quality Feedback
+        "success": "#22C55E",
+        "success_light": "#052E16",
+        "warning": "#F59E0B",
+        "warning_light": "#451A03",
+        "danger": "#EF4444",
+        "danger_light": "#450A0A",
+        "border": "#2E2521",
+    },
     "light": {
         # Light Mode Counterpart (Deep Navy Sidebar + Pure White Workspace)
         "app_bg": "#F8FAFC",
