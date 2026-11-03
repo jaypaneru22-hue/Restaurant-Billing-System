@@ -8,6 +8,7 @@ from services.auth_service import AuthService, auth_service
 from ui.theme_manager import theme_manager
 from config.settings import APP_NAME, DATA_DIR
 from utils.window_utils import center_dialog
+from utils.brand_assets import get_brand_logo, get_brand_icon, apply_window_icon
 
 
 class ForgotPasswordDialog(ctk.CTkToplevel):
@@ -15,10 +16,11 @@ class ForgotPasswordDialog(ctk.CTkToplevel):
 
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
-        self.title("Credential Recovery")
+        self.title("RestoPro — Credential Recovery")
         self.resizable(False, False)
         center_dialog(self, master, target_width=440, target_height=260)
         self.grab_set()
+        apply_window_icon(self)
 
         palette = theme_manager.get_palette()
         self.configure(fg_color=palette["bg_primary"])
@@ -62,30 +64,48 @@ class CustomerRegisterDialog(ctk.CTkToplevel):
         super().__init__(master, **kwargs)
         self.auth_svc = auth_svc
         self.on_registered = on_registered
-        self.title("Guest Account Registration")
+        self.title("RestoPro — Guest Account Registration")
         self.resizable(False, False)
-        center_dialog(self, master, target_width=440, target_height=420)
+        center_dialog(self, master, target_width=460, target_height=540)
         self.grab_set()
+        apply_window_icon(self)
 
         palette = theme_manager.get_palette()
+        is_dark = (theme_manager.current_theme == "dark")
         self.configure(fg_color=palette["bg_primary"])
 
-        card = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=12, border_width=1, border_color=palette["border"])
+        card = ctk.CTkFrame(self, fg_color=palette["bg_card"], corner_radius=14, border_width=1, border_color=palette["border"])
         card.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # Prominent RestoPro Logo Showcase
+        logo_img = get_brand_logo(target_width=170)
+        if logo_img:
+            logo_frame = ctk.CTkFrame(
+                card,
+                fg_color="#08080E" if is_dark else "#0A0A12",
+                corner_radius=12,
+                border_width=1,
+                border_color="#2A2A3A" if is_dark else "#312E81"
+            )
+            logo_frame.pack(anchor="center", pady=(14, 8))
+
+            logo_lbl = ctk.CTkLabel(logo_frame, image=logo_img, text="")
+            logo_lbl.pack(padx=8, pady=6)
 
         ctk.CTkLabel(
             card,
             text="🍽️ Guest Registration",
-            font=ctk.CTkFont(size=17, weight="bold"),
+            font=ctk.CTkFont(size=16, weight="bold"),
             text_color=palette.get("heading", palette["text_primary"])
-        ).pack(anchor="w", padx=20, pady=(16, 4))
+        ).pack(anchor="center", pady=(0, 2))
 
         ctk.CTkLabel(
             card,
             text="Create an account to browse menu, track orders, and leave dining reviews.",
             font=ctk.CTkFont(size=11),
-            text_color=palette["text_secondary"]
-        ).pack(anchor="w", padx=20, pady=(0, 14))
+            text_color=palette["text_secondary"],
+            justify="center"
+        ).pack(anchor="center", padx=16, pady=(0, 12))
 
         # Full Name
         ctk.CTkLabel(card, text="Full Name", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", palette["text_primary"])).pack(anchor="w", padx=20, pady=(0, 2))
@@ -159,7 +179,25 @@ class LoginFrame(ctk.CTkFrame):
 
     def _build_ui(self):
         palette = theme_manager.get_palette()
+        is_dark = (theme_manager.current_theme == "dark")
         self.configure(fg_color=palette["bg_secondary"])
+
+        # Top Bar with Instant Theme Toggle (Light / Dark)
+        top_bar = ctk.CTkFrame(self, fg_color="transparent")
+        top_bar.place(relx=1.0, rely=0.0, anchor="ne", x=-24, y=20)
+
+        self.theme_btn = ctk.CTkButton(
+            top_bar,
+            text="🌙 Dark Mode" if theme_manager.current_theme == "light" else "☀️ Light Mode",
+            width=96,
+            height=30,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color=palette.get("accent_light", palette["bg_secondary"]),
+            text_color=palette["accent"],
+            hover_color=palette["border"],
+            command=self._handle_theme_toggle
+        )
+        self.theme_btn.pack(side="right")
 
         # Center elevation card
         card = ctk.CTkFrame(
@@ -174,22 +212,27 @@ class LoginFrame(ctk.CTkFrame):
 
         # 1. Header & Brand Identity Area
         header_box = ctk.CTkFrame(card, fg_color="transparent")
-        header_box.pack(fill="x", padx=36, pady=(32, 16))
+        header_box.pack(fill="x", padx=36, pady=(24, 12))
 
-        brand_badge = ctk.CTkFrame(header_box, fg_color=palette["accent_light"], corner_radius=8)
-        brand_badge.pack(anchor="center", pady=(0, 10))
+        # RestoPro Prominent Logo Showcase (Preserving Exact Aspect Ratio & Sharpness)
+        logo_img = get_brand_logo(target_width=210)
+        if logo_img:
+            self.logo_frame = ctk.CTkFrame(
+                header_box,
+                fg_color="#08080E" if is_dark else "#0A0A12",
+                corner_radius=14,
+                border_width=1,
+                border_color="#2A2A3A" if is_dark else "#312E81"
+            )
+            self.logo_frame.pack(anchor="center", pady=(0, 10))
 
-        ctk.CTkLabel(
-            brand_badge,
-            text="🍽️ RESTAURANT MANAGEMENT PLATFORM",
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color=palette["accent"]
-        ).pack(padx=12, pady=4)
+            logo_lbl = ctk.CTkLabel(self.logo_frame, image=logo_img, text="")
+            logo_lbl.pack(padx=10, pady=8)
 
         ctk.CTkLabel(
             header_box,
             text="Staff Sign In",
-            font=ctk.CTkFont(size=22, weight="bold"),
+            font=ctk.CTkFont(size=20, weight="bold"),
             text_color=palette.get("heading", palette["text_primary"])
         ).pack(anchor="center")
 
@@ -199,7 +242,7 @@ class LoginFrame(ctk.CTkFrame):
             font=ctk.CTkFont(size=11),
             text_color=palette["text_secondary"],
             justify="center"
-        ).pack(anchor="center", pady=(4, 0))
+        ).pack(anchor="center", pady=(2, 0))
 
         # 2. Form Inputs
         form_box = ctk.CTkFrame(card, fg_color="transparent")
@@ -384,6 +427,17 @@ class LoginFrame(ctk.CTkFrame):
 
     def _open_forgot_password(self):
         ForgotPasswordDialog(self.winfo_toplevel())
+
+    def _handle_theme_toggle(self):
+        """Toggles theme between Dark and Light mode and updates the login UI."""
+        saved_user = self.username_entry.get().strip() if hasattr(self, "username_entry") else ""
+        theme_manager.toggle_theme()
+        for child in self.winfo_children():
+            child.destroy()
+        self._build_ui()
+        if saved_user and hasattr(self, "username_entry"):
+            self.username_entry.delete(0, "end")
+            self.username_entry.insert(0, saved_user)
 
     def _open_customer_registration(self):
         CustomerRegisterDialog(self.winfo_toplevel(), on_registered=self.on_login_success)

@@ -19,9 +19,16 @@ DOCS_DIR = BASE_DIR / "docs"
 QUALITY_DIR = BASE_DIR / "quality"
 ASSETS_DIR = BASE_DIR / "assets"
 
+# Brand Asset Paths
+LOGO_IMAGE_PATH = ASSETS_DIR / "restopro_logo.png"
+LOGO_JPG_PATH = ASSETS_DIR / "restopro_logo.jpg"
+APP_ICON_PNG = ASSETS_DIR / "restopro_icon.png"
+APP_ICON_ICO = ASSETS_DIR / "restopro_icon.ico"
+
 # Ensure runtime directories exist
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
+ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Database Paths
 DEFAULT_DB_PATH = DATA_DIR / "restaurant.db"

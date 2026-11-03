@@ -27,6 +27,7 @@ from services.auth_service import AuthService, auth_service
 from services.billing_service import BillingService, billing_service
 from services.order_service import OrderService, order_service
 from utils.window_utils import center_dialog
+from utils.brand_assets import get_brand_icon, apply_window_icon
 
 
 class ShortcutsHelpDialog(ctk.CTkToplevel):
@@ -34,10 +35,11 @@ class ShortcutsHelpDialog(ctk.CTkToplevel):
 
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
-        self.title("Keyboard Shortcuts Reference")
+        self.title("RestoPro — Keyboard Shortcuts Reference")
         self.resizable(False, False)
         center_dialog(self, master, target_width=480, target_height=420, min_width=440, min_height=380)
         self.grab_set()
+        apply_window_icon(self)
 
         palette = theme_manager.get_palette()
         self.configure(fg_color=palette["bg_primary"])
@@ -98,6 +100,7 @@ class MainWindow(ctk.CTkFrame):
         self.current_view = None
 
         theme_manager.subscribe(self.on_theme_changed)
+        apply_window_icon(self.winfo_toplevel())
         self._build_ui()
         self._bind_keyboard_shortcuts()
         initial_route = "dashboard"
@@ -269,39 +272,66 @@ class MainWindow(ctk.CTkFrame):
         self.sidebar_frame.pack(side="left", fill="y")
         self.sidebar_frame.pack_propagate(False)
 
-        # Sidebar Header Branding — Distinct by Role
+        # Sidebar Header Branding — Distinct by Role with Official RestoPro Emblem
         side_head = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
-        side_head.pack(fill="x", padx=16, pady=(18, 10))
+        side_head.pack(fill="x", padx=14, pady=(16, 10))
 
         if self.user_role == "CASHIER":
             head_title = "BILLING TERMINAL"
             head_sub = "Counter Point-of-Sale"
         elif self.user_role == "MANAGER":
             head_title = "FLOOR OPERATIONS"
-            head_sub = "Shift & Catalog Management"
+            head_sub = "Shift & Menu Ops"
         elif self.user_role == "CHEF":
-            head_title = "KITCHEN DISPLAY (KDS)"
+            head_title = "KITCHEN (KDS)"
             head_sub = "Live Order Dispatch"
         elif self.user_role == "CUSTOMER":
             head_title = "GUEST DINING"
-            head_sub = "Menu & Feedback Portal"
+            head_sub = "Menu & Reviews"
         else:
             head_title = "RESTAURANT ADMIN"
-            head_sub = "Executive Management"
+            head_sub = "Executive Suite"
 
-        ctk.CTkLabel(
-            side_head,
-            text=head_title,
-            font=ctk.CTkFont(size=13, weight="bold"),
-            text_color=palette.get("sidebar_text", "#FFFFFF")
-        ).pack(anchor="w")
+        brand_icon_img = get_brand_icon(size=36)
+        if brand_icon_img:
+            brand_row = ctk.CTkFrame(side_head, fg_color="transparent")
+            brand_row.pack(fill="x")
 
-        ctk.CTkLabel(
-            side_head,
-            text=head_sub,
-            font=ctk.CTkFont(size=10),
-            text_color=palette.get("sidebar_text_muted", "#BFDBFE")
-        ).pack(anchor="w", pady=(1, 0))
+            icon_box = ctk.CTkFrame(brand_row, fg_color="#0A0A12", corner_radius=8, border_width=1, border_color="#2A2A38")
+            icon_box.pack(side="left", padx=(0, 10))
+            icon_lbl = ctk.CTkLabel(icon_box, image=brand_icon_img, text="")
+            icon_lbl.pack(padx=3, pady=3)
+
+            text_box = ctk.CTkFrame(brand_row, fg_color="transparent")
+            text_box.pack(side="left", fill="both", expand=True)
+
+            ctk.CTkLabel(
+                text_box,
+                text=head_title,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                text_color=palette.get("sidebar_text", "#FFFFFF")
+            ).pack(anchor="w")
+
+            ctk.CTkLabel(
+                text_box,
+                text=head_sub,
+                font=ctk.CTkFont(size=9),
+                text_color=palette.get("sidebar_text_muted", "#BFDBFE")
+            ).pack(anchor="w", pady=(1, 0))
+        else:
+            ctk.CTkLabel(
+                side_head,
+                text=head_title,
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color=palette.get("sidebar_text", "#FFFFFF")
+            ).pack(anchor="w")
+
+            ctk.CTkLabel(
+                side_head,
+                text=head_sub,
+                font=ctk.CTkFont(size=10),
+                text_color=palette.get("sidebar_text_muted", "#BFDBFE")
+            ).pack(anchor="w", pady=(1, 0))
 
         # Divider
         div = ctk.CTkFrame(self.sidebar_frame, height=1, fg_color=palette.get("sidebar_secondary", "#245A9B"))

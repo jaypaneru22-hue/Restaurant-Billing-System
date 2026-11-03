@@ -98,6 +98,7 @@ def seed_demo_transactions() -> None:
 
 
 from utils.window_utils import center_window
+from utils.brand_assets import apply_window_icon
 
 
 class RestaurantBillingApp(ctk.CTk):
@@ -105,8 +106,9 @@ class RestaurantBillingApp(ctk.CTk):
 
     def __init__(self):
         super().__init__()
-        self.title("Restaurant Management Platform — Enterprise Edition")
+        self.title("RestoPro — Enterprise Restaurant Management Platform")
         center_window(self, target_width=1240, target_height=750, min_width=1024, min_height=640)
+        apply_window_icon(self)
 
         # Apply default theme
         theme_manager.apply_theme(DEFAULT_THEME)
