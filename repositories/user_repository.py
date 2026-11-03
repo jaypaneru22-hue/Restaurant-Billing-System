@@ -1,5 +1,6 @@
 """Repository for user persistence and credential storage."""
 from typing import Optional, List
+from datetime import datetime
 from database.db import DatabaseManager, db
 from models.user import User
 from utils.logger import logger
@@ -121,6 +122,20 @@ class UserRepository:
                 (new_password_hash, user_id)
             )
             logger.info(f"Password updated for user id={user_id}")
+            return cursor.rowcount > 0
+
+    def update_last_login(self, user_id: int, timestamp: Optional[str] = None) -> bool:
+        """Updates the last_login timestamp for a user after successful authentication."""
+        if not timestamp:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with self.db.transaction() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """UPDATE users SET last_login = ?, updated_at = CURRENT_TIMESTAMP
+                   WHERE id = ?;""",
+                (timestamp, user_id)
+            )
+            logger.info(f"Updated last_login for user_id={user_id} to '{timestamp}'")
             return cursor.rowcount > 0
 
     def list_all(self) -> List[User]:

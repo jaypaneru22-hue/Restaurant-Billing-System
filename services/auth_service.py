@@ -1,5 +1,6 @@
 """Authentication and session management service."""
 from typing import Optional, Tuple
+from datetime import datetime
 from models.user import User
 from repositories.user_repository import UserRepository
 from utils.security import verify_password
@@ -50,8 +51,13 @@ class AuthService:
             logger.warning(f"Login rejected: account '{username}' is deactivated.")
             return False, "Account deactivated. Contact system administrator.", None
 
+        # Record latest successful login timestamp in the database
+        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.user_repo.update_last_login(user.id, now_ts)
+        user.last_login = now_ts
+
         self._current_user = user
-        logger.info(f"Successful login for user '{username}' (role: {user.role})")
+        logger.info(f"Successful login for user '{username}' (role: {user.role}, last_login: {now_ts})")
         return True, "Login successful.", user
 
     def register_customer(self, username: str, password: str, full_name: str) -> Tuple[bool, str, Optional[User]]:
@@ -78,8 +84,13 @@ class AuthService:
             full_name=full_name.strip(),
             role="CUSTOMER"
         )
+        # Record initial login session for newly registered customer
+        now_ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.user_repo.update_last_login(user.id, now_ts)
+        user.last_login = now_ts
+
         self._current_user = user
-        logger.info(f"New customer registered: '{username}' (id={user.id})")
+        logger.info(f"New customer registered & session started: '{username}' (id={user.id}, last_login: {now_ts})")
         return True, "Customer registration successful.", user
 
     def logout(self) -> None:

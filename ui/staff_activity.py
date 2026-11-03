@@ -149,11 +149,11 @@ class StaffActivityFrame(ctk.CTkFrame):
         tbl_head.pack_propagate(False)
 
         cols = [
-            ("Employee Name", 220, "w"),
-            ("Username", 140, "w"),
-            ("System Role", 130, "center"),
+            ("Employee Name", 210, "w"),
+            ("Username", 130, "w"),
+            ("System Role", 120, "center"),
             ("Account Status", 130, "center"),
-            ("Last Session", 180, "w")
+            ("Last Session", 200, "w")
         ]
         for cname, cwidth, calign in cols:
             ctk.CTkLabel(tbl_head, text=cname, font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"], width=cwidth, anchor=calign).pack(side="left", padx=8)
@@ -161,7 +161,9 @@ class StaffActivityFrame(ctk.CTkFrame):
         role_colors = {
             "ADMIN": ("#EEF2FF", "#4F46E5"),
             "MANAGER": ("#FFFBEB", "#D97706"),
-            "CASHIER": ("#ECFDF5", "#059669")
+            "CASHIER": ("#ECFDF5", "#059669"),
+            "CHEF": ("#EFF6FF", "#2563EB"),
+            "CUSTOMER": ("#F0FDFA", "#0D9488"),
         }
 
         for u in users:
@@ -170,7 +172,7 @@ class StaffActivityFrame(ctk.CTkFrame):
             row.pack_propagate(False)
 
             # Name with mini avatar
-            name_box = ctk.CTkFrame(row, fg_color="transparent", width=220)
+            name_box = ctk.CTkFrame(row, fg_color="transparent", width=210)
             name_box.pack(side="left", padx=8)
             name_box.pack_propagate(False)
 
@@ -178,11 +180,11 @@ class StaffActivityFrame(ctk.CTkFrame):
             ctk.CTkLabel(name_box, text=u.full_name, font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_primary"]).pack(side="left")
 
             # Username
-            ctk.CTkLabel(row, text=f"@{u.username}", font=ctk.CTkFont(family="Consolas", size=11), text_color=palette["text_secondary"], width=140, anchor="w").pack(side="left", padx=8)
+            ctk.CTkLabel(row, text=f"@{u.username}", font=ctk.CTkFont(family="Consolas", size=11), text_color=palette["text_secondary"], width=130, anchor="w").pack(side="left", padx=8)
 
             # Role Pill
             r_bg, r_fg = role_colors.get(u.role, ("#F1F5F9", "#475569"))
-            r_box = ctk.CTkFrame(row, fg_color="transparent", width=130)
+            r_box = ctk.CTkFrame(row, fg_color="transparent", width=120)
             r_box.pack(side="left", padx=8)
             r_box.pack_propagate(False)
 
@@ -190,7 +192,7 @@ class StaffActivityFrame(ctk.CTkFrame):
             rp.pack(expand=True)
             ctk.CTkLabel(rp, text=u.role, font=ctk.CTkFont(size=9, weight="bold"), text_color=r_fg).pack(padx=8, pady=2)
 
-            # Status Pill
+            # Status Pill (Account Status)
             st_box = ctk.CTkFrame(row, fg_color="transparent", width=130)
             st_box.pack(side="left", padx=8)
             st_box.pack_propagate(False)
@@ -204,9 +206,10 @@ class StaffActivityFrame(ctk.CTkFrame):
                 sp.pack(expand=True)
                 ctk.CTkLabel(sp, text="Deactivated", font=ctk.CTkFont(size=9, weight="bold"), text_color="#B91C1C").pack(padx=8, pady=2)
 
-            # Last Login
-            last_login_txt = u.last_login if u.last_login else "Never logged in"
-            ctk.CTkLabel(row, text=last_login_txt, font=ctk.CTkFont(size=10), text_color=palette["text_secondary"], width=180, anchor="w").pack(side="left", padx=8)
+            # Last Session (Formatted timestamp from database)
+            last_login_txt = u.format_last_login()
+            txt_col = palette["text_secondary"] if u.last_login else palette.get("text_muted", "#64748B")
+            ctk.CTkLabel(row, text=last_login_txt, font=ctk.CTkFont(size=10), text_color=txt_col, width=200, anchor="w").pack(side="left", padx=8)
 
         # Section 2: Recent Shift Audit Feed
         s2_head = ctk.CTkFrame(self.main_scroll, fg_color="transparent")

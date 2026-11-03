@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from typing import Optional
 from decimal import Decimal
+from datetime import datetime
 
 
 @dataclass
@@ -24,6 +25,25 @@ class User:
 
     def is_cashier(self) -> bool:
         return self.role.upper() == "CASHIER"
+
+    def is_chef(self) -> bool:
+        return self.role.upper() == "CHEF"
+
+    def is_customer(self) -> bool:
+        return self.role.upper() == "CUSTOMER"
+
+    def format_last_login(self, default_text: str = "Never logged in") -> str:
+        """Returns human-readable formatted date and time for last session."""
+        if not self.last_login:
+            return default_text
+        try:
+            raw = str(self.last_login).strip().replace("T", " ")
+            clean_str = raw.split(".")[0]
+            dt = datetime.strptime(clean_str, "%Y-%m-%d %H:%M:%S")
+            return dt.strftime("%d %b %Y, %I:%M %p")
+        except Exception:
+            return str(self.last_login)
+
 
 
 @dataclass

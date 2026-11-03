@@ -105,7 +105,8 @@ class DashboardService:
         # 1. Total Staff & Active Users
         staff_row = self.db.fetchone("SELECT COUNT(*) AS total_staff FROM users;")
         total_staff = int(staff_row["total_staff"]) if staff_row else 0
-        active_users = total_staff
+        active_row = self.db.fetchone("SELECT COUNT(*) AS active_users FROM users WHERE is_active = 1;")
+        active_users = int(active_row["active_users"]) if active_row else 0
 
         # 2. Total Orders (All-time orders count)
         orders_row = self.db.fetchone("SELECT COUNT(*) AS total_orders FROM orders;")

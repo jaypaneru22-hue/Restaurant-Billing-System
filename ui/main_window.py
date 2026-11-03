@@ -394,6 +394,7 @@ class MainWindow(ctk.CTkFrame):
                 ("tables", "🪑 Floor & Table Plan", "Alt+E"),
                 ("chef_kds", "👨‍🍳 Kitchen Display (KDS)", "Alt+K"),
                 ("users", "👥 Staff Management", "Alt+U"),
+                ("staff_activity", "📋 Staff Activity & Sessions", "Alt+Y"),
                 ("roles", "🛡️ Roles & Permissions", "Alt+G"),
                 ("restaurant", "🏢 Restaurant Profile", "Alt+B"),
                 ("billing_cfg", "💳 Billing & Tax Rules", "Alt+T"),

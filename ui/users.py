@@ -357,8 +357,8 @@ class UserManagementFrame(ctk.CTkFrame):
         ctk.CTkLabel(f_inner, text="Role:", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette["text_secondary"]).pack(side="left", padx=(0, 4))
         self.combo_role_filter = ctk.CTkComboBox(
             f_inner,
-            values=["All Roles", "ADMIN", "MANAGER", "CASHIER"],
-            width=120,
+            values=["All Roles", "ADMIN", "MANAGER", "CASHIER", "CHEF", "CUSTOMER"],
+            width=125,
             height=32,
             command=lambda v: self._apply_filters()
         )
@@ -384,10 +384,11 @@ class UserManagementFrame(ctk.CTkFrame):
         tbl_head = ctk.CTkFrame(self.table_card, fg_color=palette["bg_secondary"], height=36, corner_radius=6)
         tbl_head.pack(fill="x", padx=10, pady=(10, 6))
 
-        ctk.CTkLabel(tbl_head, text="STAFF MEMBER / USERNAME", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"], width=260, anchor="w").pack(side="left", padx=(14, 0))
-        ctk.CTkLabel(tbl_head, text="ROLE", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"], width=110, anchor="w").pack(side="left")
-        ctk.CTkLabel(tbl_head, text="STATUS", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"], width=100, anchor="w").pack(side="left")
-        ctk.CTkLabel(tbl_head, text="CREATED AT", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"], width=140, anchor="w").pack(side="left")
+        ctk.CTkLabel(tbl_head, text="STAFF MEMBER / USERNAME", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"], width=230, anchor="w").pack(side="left", padx=(14, 0))
+        ctk.CTkLabel(tbl_head, text="ROLE", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"], width=90, anchor="w").pack(side="left")
+        ctk.CTkLabel(tbl_head, text="ACCOUNT STATUS", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"], width=110, anchor="w").pack(side="left")
+        ctk.CTkLabel(tbl_head, text="LAST SESSION", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"], width=170, anchor="w").pack(side="left")
+        ctk.CTkLabel(tbl_head, text="CREATED AT", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"], width=100, anchor="w").pack(side="left")
         ctk.CTkLabel(tbl_head, text="ACTIONS", font=ctk.CTkFont(size=10, weight="bold"), text_color=palette["text_secondary"], width=200, anchor="e").pack(side="right", padx=(0, 14))
 
         # Rows Container
@@ -466,7 +467,9 @@ class UserManagementFrame(ctk.CTkFrame):
         ROLE_COLORS = {
             "ADMIN": ("#8B5CF6", "#F5F3FF"),
             "MANAGER": ("#2563EB", "#EFF6FF"),
-            "CASHIER": ("#0284C7", "#F0F9FF")
+            "CASHIER": ("#0284C7", "#F0F9FF"),
+            "CHEF": ("#2563EB", "#EFF6FF"),
+            "CUSTOMER": ("#0D9488", "#F0FDFA"),
         }
 
         for idx, u in enumerate(users):
@@ -478,7 +481,7 @@ class UserManagementFrame(ctk.CTkFrame):
             row.pack(fill="x", pady=2)
 
             # User Info Column
-            user_col = ctk.CTkFrame(row, fg_color="transparent", width=260)
+            user_col = ctk.CTkFrame(row, fg_color="transparent", width=230)
             user_col.pack(side="left", padx=(14, 0), pady=8)
 
             ctk.CTkLabel(
@@ -498,18 +501,23 @@ class UserManagementFrame(ctk.CTkFrame):
             # Role Badge
             border_c, bg_c = ROLE_COLORS.get(u.role, ("#64748B", "#F1F5F9"))
             badge = ctk.CTkFrame(row, fg_color=bg_c, width=85, height=22, corner_radius=10, border_width=1, border_color=border_c)
-            badge.pack(side="left", padx=10)
+            badge.pack(side="left", padx=6)
             badge.pack_propagate(False)
             ctk.CTkLabel(badge, text=u.role, font=ctk.CTkFont(size=9, weight="bold"), text_color=border_c).place(relx=0.5, rely=0.5, anchor="center")
 
-            # Status Pill
+            # Status Pill (Account Status)
             st_color = palette["success"] if u.is_active else palette["danger"]
             st_text = "● ACTIVE" if u.is_active else "○ INACTIVE"
-            ctk.CTkLabel(row, text=st_text, font=ctk.CTkFont(size=10, weight="bold"), text_color=st_color, width=100, anchor="w").pack(side="left", padx=10)
+            ctk.CTkLabel(row, text=st_text, font=ctk.CTkFont(size=10, weight="bold"), text_color=st_color, width=110, anchor="w").pack(side="left", padx=6)
+
+            # Last Session (Formatted timestamp from database)
+            last_login_txt = u.format_last_login()
+            txt_col = palette["text_secondary"] if u.last_login else palette.get("text_muted", "#64748B")
+            ctk.CTkLabel(row, text=last_login_txt, font=ctk.CTkFont(size=10), text_color=txt_col, width=170, anchor="w").pack(side="left", padx=6)
 
             # Created timestamp
             created_str = (u.created_at or "")[:10]
-            ctk.CTkLabel(row, text=created_str, font=ctk.CTkFont(size=10), text_color=palette["text_secondary"], width=140, anchor="w").pack(side="left")
+            ctk.CTkLabel(row, text=created_str, font=ctk.CTkFont(size=10), text_color=palette["text_secondary"], width=100, anchor="w").pack(side="left", padx=6)
 
             # Actions
             act_box = ctk.CTkFrame(row, fg_color="transparent")
