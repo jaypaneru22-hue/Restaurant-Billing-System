@@ -384,6 +384,7 @@ class MainWindow(ctk.CTkFrame):
             nav_items = [
                 ("dashboard", "🍽️ Dining Portal & Status", "Alt+D"),
                 ("orders", "🛒 Food Menu & Order", "Alt+N"),
+                ("orders_history", "📜 My Orders & History", "Alt+O"),
                 ("feedback", "⭐ Reviews & NPS", "Alt+Q"),
                 ("profile", "👤 Customer Profile", "Alt+P"),
             ]
@@ -549,7 +550,7 @@ class MainWindow(ctk.CTkFrame):
             "users", "roles", "restaurant", "billing_cfg", "database", "system_health", "chef_kds"
         ]
         chef_allowed = ["dashboard", "active_orders", "food_availability", "orders_history", "profile"]
-        customer_allowed = ["dashboard", "orders", "feedback", "profile"]
+        customer_allowed = ["dashboard", "orders", "orders_history", "feedback", "profile"]
 
         if self.user_role == "CASHIER" and view_name in cashier_disallowed:
             view_name = "dashboard"
@@ -602,7 +603,11 @@ class MainWindow(ctk.CTkFrame):
         elif view_name == "shift_summary":
             self.current_view = ShiftSummaryFrame(self.content_container)
         elif view_name == "orders":
-            self.current_view = NewOrderFrame(self.content_container, on_proceed_to_bill=self.open_billing_modal)
+            self.current_view = NewOrderFrame(
+                self.content_container,
+                on_proceed_to_bill=self.open_billing_modal,
+                navigate_fn=self.navigate_to
+            )
         elif view_name == "menu":
             self.current_view = MenuFrame(self.content_container)
         elif view_name == "orders_history":

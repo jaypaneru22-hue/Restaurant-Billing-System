@@ -110,6 +110,12 @@ def run_migrations(conn: sqlite3.Connection) -> None:
     if "last_login" not in user_cols:
         cursor.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP;")
 
+    # 1b. Add special_instructions to orders if missing
+    cursor.execute("PRAGMA table_info(orders);")
+    order_cols = {r[1] for r in cursor.fetchall()}
+    if "special_instructions" not in order_cols:
+        cursor.execute("ALTER TABLE orders ADD COLUMN special_instructions TEXT DEFAULT '';")
+
     # 2. Restaurant Profile & Legal Info
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS restaurant_profile (

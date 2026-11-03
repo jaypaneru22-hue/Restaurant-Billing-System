@@ -12,6 +12,7 @@ class Order:
     table_number: str = "Takeaway"
     customer_name: str = "Walk-in Customer"
     status: str = "PENDING"
+    special_instructions: str = ""
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     items: List[OrderItem] = field(default_factory=list)

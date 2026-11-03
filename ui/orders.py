@@ -7,6 +7,8 @@ from services.menu_service import MenuService, menu_service
 from services.auth_service import AuthService, auth_service
 from ui.theme_manager import theme_manager
 from config.settings import DEFAULT_CATEGORIES, CURRENCY_SYMBOL, DEFAULT_TAX_RATE
+from ui.customer_checkout import CustomerCheckoutDialog, OrderConfirmationDialog, ConfirmClearCartDialog
+from models.order import Order
 
 
 class NewOrderFrame(ctk.CTkFrame):
@@ -19,6 +21,7 @@ class NewOrderFrame(ctk.CTkFrame):
         order_svc: OrderService = order_service,
         menu_svc: MenuService = menu_service,
         auth_svc: AuthService = auth_service,
+        navigate_fn: Optional[Callable[[str], None]] = None,
         **kwargs
     ):
         super().__init__(master, **kwargs)
@@ -26,6 +29,10 @@ class NewOrderFrame(ctk.CTkFrame):
         self.order_svc = order_svc
         self.menu_svc = menu_svc
         self.auth_svc = auth_svc
+        self.navigate_fn = navigate_fn
+
+        curr_user = self.auth_svc.current_user
+        self.is_customer = bool(curr_user and curr_user.role == "CUSTOMER")
 
         # Cart: {menu_item_id: {"name": str, "price": Decimal, "qty": int}}
         self.cart: Dict[int, Dict] = {}
@@ -155,7 +162,7 @@ class NewOrderFrame(ctk.CTkFrame):
 
         # Cart Header
         cart_header = ctk.CTkFrame(right_panel, fg_color="transparent")
-        cart_header.pack(fill="x", padx=16, pady=(16, 10))
+        cart_header.pack(fill="x", padx=16, pady=(16, 8))
 
         self.lbl_cart_title = ctk.CTkLabel(
             cart_header,
@@ -165,21 +172,9 @@ class NewOrderFrame(ctk.CTkFrame):
         )
         self.lbl_cart_title.pack(side="left")
 
-        ctk.CTkButton(
-            cart_header,
-            text="Clear Cart",
-            width=70,
-            height=26,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color=palette["bg_secondary"],
-            hover_color=palette["danger"],
-            text_color=palette["text_secondary"],
-            command=self._clear_cart
-        ).pack(side="right")
-
         # Table & Customer Metadata
         meta_box = ctk.CTkFrame(right_panel, fg_color=palette["bg_secondary"], corner_radius=8, border_width=1, border_color=palette["border"])
-        meta_box.pack(fill="x", padx=16, pady=(0, 10))
+        meta_box.pack(fill="x", padx=16, pady=(0, 8))
 
         # Row 1: Table Number
         t_row = ctk.CTkFrame(meta_box, fg_color="transparent")
@@ -209,13 +204,17 @@ class NewOrderFrame(ctk.CTkFrame):
         ctk.CTkLabel(c_row, text="Customer:", width=70, anchor="w", font=ctk.CTkFont(size=11, weight="bold"), text_color=palette.get("form_label", "#334155")).pack(side="left")
         self.entry_customer = ctk.CTkEntry(c_row, height=28, font=ctk.CTkFont(size=12))
         self.entry_customer.pack(side="left", fill="x", expand=True, padx=4)
-        self.entry_customer.insert(0, "Walk-in Guest")
 
-        # Cart Items Scrollable Frame
-        self.cart_scroll = ctk.CTkScrollableFrame(right_panel, fg_color="transparent")
-        self.cart_scroll.pack(fill="both", expand=True, padx=12, pady=(0, 10))
+        curr_user = self.auth_svc.current_user
+        if self.is_customer and curr_user:
+            self.entry_customer.insert(0, curr_user.full_name)
+            self.entry_customer.configure(state="disabled")
+        else:
+            self.entry_customer.insert(0, "Walk-in Guest")
 
-        # Bottom Totals & Actions Box (Spacious, Elevated Bill Summary Container)
+        # ---------------------------------------------------------------------
+        # PACK BOTTOM_BOX FIRST (side="bottom") TO GUARANTEE ZERO CLIPPING
+        # ---------------------------------------------------------------------
         is_dark = (theme_manager.current_theme == "dark")
         self.bottom_box = ctk.CTkFrame(
             right_panel,
@@ -224,11 +223,15 @@ class NewOrderFrame(ctk.CTkFrame):
             border_width=1,
             border_color="#2A2A3D" if is_dark else "#CBD5E1"
         )
-        self.bottom_box.pack(fill="x", padx=16, pady=(0, 16))
+        self.bottom_box.pack(side="bottom", fill="x", padx=16, pady=(0, 14))
+
+        # Cart Items Scrollable Frame packed second with expand=True
+        self.cart_scroll = ctk.CTkScrollableFrame(right_panel, fg_color="transparent")
+        self.cart_scroll.pack(side="top", fill="both", expand=True, padx=12, pady=(0, 8))
 
         # Header for Summary
         summary_head = ctk.CTkFrame(self.bottom_box, fg_color="transparent")
-        summary_head.pack(fill="x", padx=16, pady=(14, 6))
+        summary_head.pack(fill="x", padx=16, pady=(12, 4))
 
         ctk.CTkLabel(
             summary_head,
@@ -247,7 +250,7 @@ class NewOrderFrame(ctk.CTkFrame):
 
         # Financial breakdown inside cart
         calc_inner = ctk.CTkFrame(self.bottom_box, fg_color="transparent")
-        calc_inner.pack(fill="x", padx=16, pady=(2, 6))
+        calc_inner.pack(fill="x", padx=16, pady=(2, 4))
 
         # Row 1: Items Subtotal
         sub_row = ctk.CTkFrame(calc_inner, fg_color="transparent")
@@ -255,13 +258,13 @@ class NewOrderFrame(ctk.CTkFrame):
         ctk.CTkLabel(
             sub_row,
             text="Items Subtotal:",
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=ctk.CTkFont(size=12, weight="bold"),
             text_color=palette.get("form_label", "#334155")
         ).pack(side="left")
         self.lbl_subtotal = ctk.CTkLabel(
             sub_row,
             text=f"{CURRENCY_SYMBOL}0.00",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=ctk.CTkFont(size=13, weight="bold"),
             text_color=palette["text_primary"]
         )
         self.lbl_subtotal.pack(side="right")
@@ -271,14 +274,14 @@ class NewOrderFrame(ctk.CTkFrame):
         tax_row.pack(fill="x", pady=2)
         ctk.CTkLabel(
             tax_row,
-            text="Estimated GST (5%):",
-            font=ctk.CTkFont(size=13, weight="bold"),
+            text=f"Estimated GST ({DEFAULT_TAX_RATE}%):",
+            font=ctk.CTkFont(size=12, weight="bold"),
             text_color=palette.get("form_label", "#334155")
         ).pack(side="left")
         self.lbl_est_tax = ctk.CTkLabel(
             tax_row,
             text=f"{CURRENCY_SYMBOL}0.00",
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=ctk.CTkFont(size=13, weight="bold"),
             text_color=palette["text_primary"]
         )
         self.lbl_est_tax.pack(side="right")
@@ -289,21 +292,21 @@ class NewOrderFrame(ctk.CTkFrame):
             height=1,
             fg_color="#2A2A3D" if is_dark else "#E2E8F0"
         )
-        self.div_line.pack(fill="x", pady=(8, 8))
+        self.div_line.pack(fill="x", pady=(6, 6))
 
-        # Row 3: Estimated Net Total (Strongest visual element)
+        # Row 3: Estimated Net Total
         tot_row = ctk.CTkFrame(calc_inner, fg_color="transparent")
-        tot_row.pack(fill="x", pady=(0, 4))
+        tot_row.pack(fill="x", pady=(0, 2))
         ctk.CTkLabel(
             tot_row,
             text="Estimated Net Total:",
-            font=ctk.CTkFont(size=16, weight="bold"),
+            font=ctk.CTkFont(size=14, weight="bold"),
             text_color=palette.get("heading", palette["text_primary"])
         ).pack(side="left")
         self.lbl_grand_total = ctk.CTkLabel(
             tot_row,
             text=f"{CURRENCY_SYMBOL}0.00",
-            font=ctk.CTkFont(size=24, weight="bold"),
+            font=ctk.CTkFont(size=20, weight="bold"),
             text_color=palette["success"]
         )
         self.lbl_grand_total.pack(side="right")
@@ -319,39 +322,88 @@ class NewOrderFrame(ctk.CTkFrame):
 
         # Action Buttons Container
         self.btn_row = ctk.CTkFrame(self.bottom_box, fg_color="transparent")
-        self.btn_row.pack(fill="x", padx=16, pady=(4, 16))
+        self.btn_row.pack(fill="x", padx=16, pady=(4, 14))
 
-        # Save Bill Button (Secondary Action, Height 52px, Font 16px Bold)
-        self.btn_save_pending = ctk.CTkButton(
-            self.btn_row,
-            text="💾 Save Bill",
-            height=52,
-            corner_radius=10,
-            font=ctk.CTkFont(size=16, weight="bold"),
-            fg_color="#252538" if is_dark else "#E2E8F0",
-            hover_color="#33334A" if is_dark else "#CBD5E1",
-            text_color="#FFFFFF" if is_dark else "#0F172A",
-            border_width=1,
-            border_color="#454562" if is_dark else "#94A3B8",
-            state="disabled",
-            command=self._handle_save_pending
-        )
-        self.btn_save_pending.pack(side="left", expand=True, fill="x", padx=(0, 7))
+        if self.is_customer:
+            # CUSTOMER ORDERING WORKFLOW
+            self.btn_clear_cart = ctk.CTkButton(
+                self.btn_row,
+                text="🗑️ Clear Cart",
+                width=100,
+                height=44,
+                corner_radius=10,
+                font=ctk.CTkFont(size=12, weight="bold"),
+                fg_color=palette["bg_secondary"],
+                hover_color=palette["danger"],
+                text_color=palette["text_primary"],
+                border_width=1,
+                border_color=palette["border"],
+                state="disabled",
+                command=self._handle_clear_cart_confirm
+            )
+            self.btn_clear_cart.pack(side="left", padx=(0, 8))
 
-        # Proceed Bill Button (Primary Action, Height 52px, Font 17px Bold, Accent)
-        self.btn_bill = ctk.CTkButton(
-            self.btn_row,
-            text="Proceed Bill 💳",
-            height=52,
-            corner_radius=10,
-            font=ctk.CTkFont(size=17, weight="bold"),
-            fg_color=palette["accent"],
-            hover_color=palette["accent_hover"],
-            text_color="#FFFFFF",
-            state="disabled",
-            command=self._handle_proceed_bill
-        )
-        self.btn_bill.pack(side="right", expand=True, fill="x", padx=(7, 0))
+            self.btn_checkout = ctk.CTkButton(
+                self.btn_row,
+                text="Proceed to Checkout ➔",
+                height=44,
+                corner_radius=10,
+                font=ctk.CTkFont(size=14, weight="bold"),
+                fg_color=palette["accent"],
+                hover_color=palette["accent_hover"],
+                text_color="#FFFFFF",
+                state="disabled",
+                command=self._handle_proceed_checkout
+            )
+            self.btn_checkout.pack(side="right", expand=True, fill="x")
+        else:
+            # CASHIER / MANAGER WORKFLOW
+            self.btn_clear_cart = ctk.CTkButton(
+                self.btn_row,
+                text="🗑️ Clear Cart",
+                width=90,
+                height=44,
+                corner_radius=10,
+                font=ctk.CTkFont(size=11, weight="bold"),
+                fg_color=palette["bg_secondary"],
+                hover_color=palette["danger"],
+                text_color=palette["text_primary"],
+                border_width=1,
+                border_color=palette["border"],
+                state="disabled",
+                command=self._handle_clear_cart_confirm
+            )
+            self.btn_clear_cart.pack(side="left", padx=(0, 4))
+
+            self.btn_save_pending = ctk.CTkButton(
+                self.btn_row,
+                text="💾 Place Order",
+                height=44,
+                corner_radius=10,
+                font=ctk.CTkFont(size=13, weight="bold"),
+                fg_color="#252538" if is_dark else "#E2E8F0",
+                hover_color="#33334A" if is_dark else "#CBD5E1",
+                text_color="#FFFFFF" if is_dark else "#0F172A",
+                border_width=1,
+                border_color="#454562" if is_dark else "#94A3B8",
+                state="disabled",
+                command=self._handle_save_pending
+            )
+            self.btn_save_pending.pack(side="left", expand=True, fill="x", padx=4)
+
+            self.btn_bill = ctk.CTkButton(
+                self.btn_row,
+                text="Proceed Bill 💳",
+                height=44,
+                corner_radius=10,
+                font=ctk.CTkFont(size=13, weight="bold"),
+                fg_color=palette["accent"],
+                hover_color=palette["accent_hover"],
+                text_color="#FFFFFF",
+                state="disabled",
+                command=self._handle_proceed_bill
+            )
+            self.btn_bill.pack(side="right", expand=True, fill="x", padx=(4, 0))
 
         # Responsive button layout binding
         self.btn_row.bind("<Configure>", self._update_button_layout)
@@ -363,20 +415,40 @@ class NewOrderFrame(ctk.CTkFrame):
         width = self.btn_row.winfo_width()
         if width <= 1:
             return
-        if width < 290:
-            if getattr(self, "_btn_layout_mode", None) != "vertical":
-                self._btn_layout_mode = "vertical"
-                self.btn_save_pending.pack_forget()
-                self.btn_bill.pack_forget()
-                self.btn_bill.pack(side="top", fill="x", pady=(0, 10))
-                self.btn_save_pending.pack(side="top", fill="x")
+        if self.is_customer:
+            if width < 260:
+                if getattr(self, "_btn_layout_mode", None) != "vertical":
+                    self._btn_layout_mode = "vertical"
+                    self.btn_clear_cart.pack_forget()
+                    self.btn_checkout.pack_forget()
+                    self.btn_checkout.pack(side="top", fill="x", pady=(0, 6))
+                    self.btn_clear_cart.pack(side="top", fill="x")
+            else:
+                if getattr(self, "_btn_layout_mode", None) != "horizontal":
+                    self._btn_layout_mode = "horizontal"
+                    self.btn_clear_cart.pack_forget()
+                    self.btn_checkout.pack_forget()
+                    self.btn_clear_cart.pack(side="left", padx=(0, 8))
+                    self.btn_checkout.pack(side="right", expand=True, fill="x")
         else:
-            if getattr(self, "_btn_layout_mode", None) != "horizontal":
-                self._btn_layout_mode = "horizontal"
-                self.btn_save_pending.pack_forget()
-                self.btn_bill.pack_forget()
-                self.btn_save_pending.pack(side="left", expand=True, fill="x", padx=(0, 7))
-                self.btn_bill.pack(side="right", expand=True, fill="x", padx=(7, 0))
+            if width < 280:
+                if getattr(self, "_btn_layout_mode", None) != "vertical":
+                    self._btn_layout_mode = "vertical"
+                    self.btn_clear_cart.pack_forget()
+                    self.btn_save_pending.pack_forget()
+                    self.btn_bill.pack_forget()
+                    self.btn_bill.pack(side="top", fill="x", pady=(0, 4))
+                    self.btn_save_pending.pack(side="top", fill="x", pady=(0, 4))
+                    self.btn_clear_cart.pack(side="top", fill="x")
+            else:
+                if getattr(self, "_btn_layout_mode", None) != "horizontal":
+                    self._btn_layout_mode = "horizontal"
+                    self.btn_clear_cart.pack_forget()
+                    self.btn_save_pending.pack_forget()
+                    self.btn_bill.pack_forget()
+                    self.btn_clear_cart.pack(side="left", padx=(0, 4))
+                    self.btn_save_pending.pack(side="left", expand=True, fill="x", padx=4)
+                    self.btn_bill.pack(side="right", expand=True, fill="x", padx=(4, 0))
 
     def _set_table(self, table_str: str):
         self.entry_table.delete(0, "end")
@@ -482,13 +554,19 @@ class NewOrderFrame(ctk.CTkFrame):
             self.lbl_items_badge.configure(text=f"{total_items} items")
 
         if not self.cart:
-            self.btn_bill.configure(state="disabled")
-            self.btn_save_pending.configure(
-                state="disabled",
-                fg_color="#1A1A24" if is_dark else "#F1F5F9",
-                text_color="#64748B" if is_dark else "#94A3B8",
-                border_color="#2A2A38" if is_dark else "#E2E8F0"
-            )
+            if hasattr(self, "btn_clear_cart") and self.btn_clear_cart.winfo_exists():
+                self.btn_clear_cart.configure(state="disabled")
+            if hasattr(self, "btn_checkout") and self.btn_checkout.winfo_exists():
+                self.btn_checkout.configure(state="disabled")
+            if hasattr(self, "btn_bill") and self.btn_bill.winfo_exists():
+                self.btn_bill.configure(state="disabled")
+            if hasattr(self, "btn_save_pending") and self.btn_save_pending.winfo_exists():
+                self.btn_save_pending.configure(
+                    state="disabled",
+                    fg_color="#1A1A24" if is_dark else "#F1F5F9",
+                    text_color="#64748B" if is_dark else "#94A3B8",
+                    border_color="#2A2A38" if is_dark else "#E2E8F0"
+                )
             empty_box = ctk.CTkFrame(self.cart_scroll, fg_color="transparent")
             empty_box.pack(pady=40)
             ctk.CTkLabel(
@@ -503,14 +581,20 @@ class NewOrderFrame(ctk.CTkFrame):
             self.lbl_grand_total.configure(text=f"{CURRENCY_SYMBOL}0.00")
             return
 
-        self.btn_bill.configure(state="normal")
-        self.btn_save_pending.configure(
-            state="normal",
-            fg_color="#252538" if is_dark else "#E2E8F0",
-            hover_color="#33334A" if is_dark else "#CBD5E1",
-            text_color="#FFFFFF" if is_dark else "#0F172A",
-            border_color="#454562" if is_dark else "#94A3B8"
-        )
+        if hasattr(self, "btn_clear_cart") and self.btn_clear_cart.winfo_exists():
+            self.btn_clear_cart.configure(state="normal")
+        if hasattr(self, "btn_checkout") and self.btn_checkout.winfo_exists():
+            self.btn_checkout.configure(state="normal")
+        if hasattr(self, "btn_bill") and self.btn_bill.winfo_exists():
+            self.btn_bill.configure(state="normal")
+        if hasattr(self, "btn_save_pending") and self.btn_save_pending.winfo_exists():
+            self.btn_save_pending.configure(
+                state="normal",
+                fg_color="#252538" if is_dark else "#E2E8F0",
+                hover_color="#33334A" if is_dark else "#CBD5E1",
+                text_color="#FFFFFF" if is_dark else "#0F172A",
+                border_color="#454562" if is_dark else "#94A3B8"
+            )
 
         subtotal = Decimal("0.00")
         for item_id, data in self.cart.items():
@@ -606,6 +690,55 @@ class NewOrderFrame(ctk.CTkFrame):
         self.refresh_catalog()
         self._render_cart()
 
+    def _handle_clear_cart_confirm(self):
+        if not self.cart:
+            return
+        ConfirmClearCartDialog(self, on_confirmed=self._clear_cart)
+
+    def _handle_proceed_checkout(self):
+        palette = theme_manager.get_palette()
+        if not self.cart:
+            self.lbl_order_error.configure(text="Please add at least one item before proceeding.", text_color=palette["danger"])
+            return
+
+        # Validate item availability
+        for item_id, data in self.cart.items():
+            menu_item = self.menu_svc.get_item(item_id)
+            if not menu_item or not menu_item.is_available:
+                self.lbl_order_error.configure(text=f"'{data['name']}' is currently out of stock.", text_color=palette["danger"])
+                return
+
+        self.lbl_order_error.configure(text="")
+        table_str = self.entry_table.get().strip() or "Table 1"
+        cust_str = self.entry_customer.get().strip() or (self.auth_svc.current_user.full_name if self.auth_svc.current_user else "Valued Guest")
+
+        CustomerCheckoutDialog(
+            master=self,
+            cart=self.cart,
+            table_number=table_str,
+            customer_name=cust_str,
+            on_order_confirmed=self._on_customer_order_placed,
+            order_svc=self.order_svc,
+            menu_svc=self.menu_svc,
+            auth_svc=self.auth_svc
+        )
+
+    def _on_customer_order_placed(self, order: Order):
+        self.cart.clear()
+        self.refresh_catalog()
+        self._render_cart()
+        palette = theme_manager.get_palette()
+        self.lbl_order_error.configure(text=f"✓ Order #{order.order_number} confirmed & sent to kitchen!", text_color=palette["success"])
+        OrderConfirmationDialog(
+            master=self,
+            order=order,
+            on_track_order=self._handle_track_order
+        )
+
+    def _handle_track_order(self, order_id: int):
+        if hasattr(self, "navigate_fn") and self.navigate_fn:
+            self.navigate_fn("orders_history")
+
     def _create_order_record(self) -> Optional[int]:
         palette = theme_manager.get_palette()
         if not self.cart:
@@ -655,12 +788,14 @@ class OrderHistoryFrame(ctk.CTkFrame):
         on_open_bill: Callable[[int], None],
         on_view_receipt: Callable[[int], None],
         order_svc: OrderService = order_service,
+        auth_svc: AuthService = auth_service,
         **kwargs
     ):
         super().__init__(master, **kwargs)
         self.on_open_bill = on_open_bill
         self.on_view_receipt = on_view_receipt
         self.order_svc = order_svc
+        self.auth_svc = auth_svc
 
         theme_manager.subscribe(self.on_theme_changed)
         self._build_ui()
@@ -730,7 +865,10 @@ class OrderHistoryFrame(ctk.CTkFrame):
     def refresh_history(self):
         filter_status = self.status_seg.get()
         status_param = None if filter_status == "All" else filter_status
-        orders = self.order_svc.list_orders(status=status_param, limit=60)
+        curr_user = self.auth_svc.current_user
+        is_customer = bool(curr_user and curr_user.role == "CUSTOMER")
+        user_id = curr_user.id if is_customer else None
+        orders = self.order_svc.list_orders(status=status_param, user_id=user_id, limit=60)
         palette = theme_manager.get_palette()
 
         for child in self.scroll_orders.winfo_children():
@@ -805,22 +943,23 @@ class OrderHistoryFrame(ctk.CTkFrame):
 
             # Actions based on status
             if order.status == "PENDING":
-                bill_btn = ctk.CTkButton(
-                    right,
-                    text="Settle Bill 💳",
-                    width=95,
-                    height=30,
-                    font=ctk.CTkFont(size=11, weight="bold"),
-                    fg_color=palette["accent"],
-                    hover_color=palette["accent_hover"],
-                    command=lambda oid=order.id: self.on_open_bill(oid)
-                )
-                bill_btn.pack(side="left", padx=3)
+                if not is_customer:
+                    bill_btn = ctk.CTkButton(
+                        right,
+                        text="Settle Bill 💳",
+                        width=95,
+                        height=30,
+                        font=ctk.CTkFont(size=11, weight="bold"),
+                        fg_color=palette["accent"],
+                        hover_color=palette["accent_hover"],
+                        command=lambda oid=order.id: self.on_open_bill(oid)
+                    )
+                    bill_btn.pack(side="left", padx=3)
 
                 cancel_btn = ctk.CTkButton(
                     right,
-                    text="Cancel",
-                    width=65,
+                    text="Cancel Order" if is_customer else "Cancel",
+                    width=95 if is_customer else 65,
                     height=30,
                     font=ctk.CTkFont(size=11),
                     fg_color=palette["danger"],

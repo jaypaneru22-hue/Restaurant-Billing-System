@@ -19,7 +19,8 @@ class OrderService:
         user_id: int,
         table_number: str,
         customer_name: str,
-        item_entries: List[Tuple[int, int]]  # List of (menu_item_id, quantity)
+        item_entries: List[Tuple[int, int]],  # List of (menu_item_id, quantity)
+        special_instructions: str = ""
     ) -> Tuple[bool, str, Optional[Order]]:
         """Creates a multi-item order with availability validation and line total calculation."""
         if not item_entries:
@@ -51,7 +52,13 @@ class OrderService:
         try:
             table = table_number.strip() if table_number and table_number.strip() else "Takeaway"
             customer = customer_name.strip() if customer_name and customer_name.strip() else "Walk-in Customer"
-            order = self.order_repo.create_order(user_id, table, customer, order_items)
+            order = self.order_repo.create_order(
+                user_id=user_id,
+                table_number=table,
+                customer_name=customer,
+                items=order_items,
+                special_instructions=special_instructions
+            )
             return True, "Order created successfully.", order
         except Exception as e:
             logger.error(f"Error creating order: {e}", exc_info=True)
@@ -128,8 +135,12 @@ class OrderService:
     def get_order(self, order_id: int) -> Optional[Order]:
         return self.order_repo.get_by_id(order_id)
 
-    def list_orders(self, status: Optional[str] = None, limit: int = 50) -> List[Order]:
-        return self.order_repo.list_orders(status=status, limit=limit)
+    def list_orders(self, status: Optional[str] = None, limit: int = 50, user_id: Optional[int] = None) -> List[Order]:
+        return self.order_repo.list_orders(status=status, limit=limit, user_id=user_id)
+
+    def get_customer_orders(self, user_id: int, limit: int = 50) -> List[Order]:
+        """Returns orders strictly belonging to the specified customer."""
+        return self.order_repo.list_orders(limit=limit, user_id=user_id)
 
 
 # Global order service instance

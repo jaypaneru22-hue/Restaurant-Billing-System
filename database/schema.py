@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS orders (
     table_number TEXT DEFAULT 'Takeaway',
     customer_name TEXT DEFAULT 'Walk-in Customer',
     status TEXT NOT NULL DEFAULT 'PENDING',
+    special_instructions TEXT DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)

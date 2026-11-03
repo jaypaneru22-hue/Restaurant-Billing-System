@@ -25,12 +25,13 @@ class OrderRepository:
 
     def get_by_id(self, order_id: int) -> Optional[Order]:
         order_row = self.db.fetchone(
-            "SELECT id, order_number, user_id, table_number, customer_name, status, created_at, updated_at FROM orders WHERE id = ?;",
+            "SELECT id, order_number, user_id, table_number, customer_name, status, special_instructions, created_at, updated_at FROM orders WHERE id = ?;",
             (order_id,)
         )
         if not order_row:
             return None
         items = self.get_order_items(order_id)
+        special_instructions = order_row["special_instructions"] if "special_instructions" in order_row.keys() and order_row["special_instructions"] else ""
         return Order(
             id=order_row["id"],
             order_number=order_row["order_number"],
@@ -38,6 +39,7 @@ class OrderRepository:
             table_number=order_row["table_number"],
             customer_name=order_row["customer_name"],
             status=order_row["status"],
+            special_instructions=special_instructions,
             created_at=order_row["created_at"],
             updated_at=order_row["updated_at"],
             items=items
@@ -70,7 +72,14 @@ class OrderRepository:
             for r in rows
         ]
 
-    def create_order(self, user_id: int, table_number: str, customer_name: str, items: List[OrderItem]) -> Order:
+    def create_order(
+        self,
+        user_id: int,
+        table_number: str,
+        customer_name: str,
+        items: List[OrderItem],
+        special_instructions: str = ""
+    ) -> Order:
         """Atomically persists an order and its line items."""
         if not items:
             raise ValueError("Please add at least one item before proceeding.")
@@ -81,9 +90,9 @@ class OrderRepository:
         with self.db.transaction() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                """INSERT INTO orders (order_number, user_id, table_number, customer_name, status, created_at)
-                   VALUES (?, ?, ?, ?, 'PENDING', ?);""",
-                (order_number, user_id, table_number.strip(), customer_name.strip(), created_at)
+                """INSERT INTO orders (order_number, user_id, table_number, customer_name, status, special_instructions, created_at)
+                   VALUES (?, ?, ?, ?, 'PENDING', ?, ?);""",
+                (order_number, user_id, table_number.strip(), customer_name.strip(), special_instructions.strip(), created_at)
             )
             order_id = cursor.lastrowid
 
@@ -134,12 +143,18 @@ class OrderRepository:
             )
             return cursor.rowcount > 0
 
-    def list_orders(self, status: Optional[str] = None, limit: int = 50) -> List[Order]:
-        sql = "SELECT id, order_number, user_id, table_number, customer_name, status, created_at, updated_at FROM orders"
+    def list_orders(self, status: Optional[str] = None, limit: int = 50, user_id: Optional[int] = None) -> List[Order]:
+        sql = "SELECT id, order_number, user_id, table_number, customer_name, status, special_instructions, created_at, updated_at FROM orders"
+        conditions = []
         params = []
         if status and status.strip():
-            sql += " WHERE status = ?"
+            conditions.append("status = ?")
             params.append(status.upper())
+        if user_id is not None:
+            conditions.append("user_id = ?")
+            params.append(user_id)
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
         sql += " ORDER BY id DESC LIMIT ?;"
         params.append(limit)
         rows = self.db.fetchall(sql, tuple(params))
@@ -153,6 +168,7 @@ class OrderRepository:
                 table_number=r["table_number"],
                 customer_name=r["customer_name"],
                 status=r["status"],
+                special_instructions=r["special_instructions"] if "special_instructions" in r.keys() and r["special_instructions"] else "",
                 created_at=r["created_at"],
                 updated_at=r["updated_at"],
                 items=items

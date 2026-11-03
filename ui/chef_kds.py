@@ -1,5 +1,5 @@
 """Chef Kitchen Display System (KDS) & Real-Time Kitchen Order Ticket (KOT) Dispatch."""
-from typing import Optional, Callable, List, Dict
+from typing import Optional, Callable, List, Dict, Tuple
 from datetime import datetime
 import time
 import customtkinter as ctk
@@ -16,16 +16,26 @@ class ChefKDSFrame(ctk.CTkFrame):
     def __init__(self, master, initial_filter: str = "ALL", **kwargs):
         super().__init__(master, **kwargs)
         self.order_repo = OrderRepository(db)
-        self.current_filter = initial_filter  # ALL, NEW, ACCEPTED, PREPARING, READY
-        self._auto_refresh_id = None
+        self.current_filter = initial_filter  # ALL, PENDING, ACCEPTED, PREPARING, READY
+        self._auto_refresh_id: Optional[str] = None
+        self._is_active: bool = True
+        self._poll_interval_ms: int = 4000  # 4 seconds poll interval (3-5s requirement)
+
+        # Smart in-place diffing cache
+        self._rendered_signature: Tuple = ()
+        self._card_timer_labels: Dict[int, Tuple[ctk.CTkLabel, float]] = {}
 
         theme_manager.subscribe(self.on_theme_changed)
         self._build_ui()
-        self._load_kds_orders()
-        self._start_auto_refresh()
+
+        # Perform initial load (blocking UI construction), then schedule single active periodic refresh
+        self._refresh_kds_data(is_periodic=False)
+        self._schedule_refresh()
 
     def destroy(self):
-        if self._auto_refresh_id:
+        """Cancels all active refresh timers and unbinds events cleanly."""
+        self._is_active = False
+        if self._auto_refresh_id is not None:
             try:
                 self.after_cancel(self._auto_refresh_id)
             except Exception:
@@ -35,15 +45,40 @@ class ChefKDSFrame(ctk.CTkFrame):
         super().destroy()
 
     def on_theme_changed(self, _theme: str):
-        if self.winfo_exists():
+        if self._is_active and self.winfo_exists():
             palette = theme_manager.get_palette()
             self.configure(fg_color=palette["bg_primary"])
-            self._load_kds_orders()
+            self._rendered_signature = ()  # Invalidate signature to force redraw with new palette
+            self._refresh_kds_data(is_periodic=False)
 
-    def _start_auto_refresh(self):
-        """Polls every 8 seconds to fetch newly placed orders without manual page restart."""
-        self._load_kds_orders()
-        self._auto_refresh_id = self.after(8000, self._start_auto_refresh)
+    def _schedule_refresh(self):
+        """Schedules exactly ONE pending refresh tick if screen remains active."""
+        if not self._is_active or not self.winfo_exists():
+            return
+
+        # Cancel any stray existing timer to guarantee single-instance execution
+        if self._auto_refresh_id is not None:
+            try:
+                self.after_cancel(self._auto_refresh_id)
+            except Exception:
+                pass
+            self._auto_refresh_id = None
+
+        self._auto_refresh_id = self.after(self._poll_interval_ms, self._on_auto_refresh_tick)
+
+    def _on_auto_refresh_tick(self):
+        """Periodic auto-refresh timer callback."""
+        self._auto_refresh_id = None
+        if not self._is_active or not self.winfo_exists():
+            return
+
+        try:
+            self._refresh_kds_data(is_periodic=True)
+        except Exception as e:
+            logger.error(f"Error during KDS periodic refresh: {e}")
+        finally:
+            if self._is_active and self.winfo_exists():
+                self._schedule_refresh()
 
     def _build_ui(self):
         palette = theme_manager.get_palette()
@@ -76,7 +111,7 @@ class ChefKDSFrame(ctk.CTkFrame):
         ctrl_box = ctk.CTkFrame(header, fg_color="transparent")
         ctrl_box.pack(side="right")
 
-        ctk.CTkButton(
+        self.btn_refresh = ctk.CTkButton(
             ctrl_box,
             text="🔄 Refresh KDS",
             font=ctk.CTkFont(size=11, weight="bold"),
@@ -84,14 +119,47 @@ class ChefKDSFrame(ctk.CTkFrame):
             hover_color=palette["accent_hover"],
             height=32,
             width=120,
-            command=self._load_kds_orders
-        ).pack(side="right")
+            command=lambda: self._refresh_kds_data(is_periodic=False)
+        )
+        self.btn_refresh.pack(side="right")
 
         # -------------------------------------------------------------
-        # SUMMARY KPI METRICS BAR
+        # SUMMARY KPI METRICS BAR (Built once, updated in-place)
         # -------------------------------------------------------------
         self.kpi_container = ctk.CTkFrame(self, fg_color="transparent")
         self.kpi_container.pack(fill="x", padx=20, pady=(0, 10))
+
+        self.kpi_labels = {}
+        kpi_defs = [
+            ("total", "Total Kitchen Tickets", "👨‍🍳", palette["accent"]),
+            ("new", "New Unaccepted (KOT)", "📥", "#3B82F6"),
+            ("prep", "Cooking In-Progress", "🔥", "#F59E0B"),
+            ("ready", "Ready at Pass", "🔔", "#10B981")
+        ]
+
+        for key, title, icon, color in kpi_defs:
+            card = ctk.CTkFrame(
+                self.kpi_container,
+                fg_color=palette["bg_card"],
+                corner_radius=8,
+                border_width=1,
+                border_color=palette["border"],
+                height=65
+            )
+            card.pack(side="left", fill="x", expand=True, padx=4)
+            card.pack_propagate(False)
+
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="both", expand=True, padx=12, pady=8)
+
+            left = ctk.CTkFrame(inner, fg_color="transparent")
+            left.pack(side="left")
+            ctk.CTkLabel(left, text=title, font=ctk.CTkFont(size=10), text_color=palette["text_secondary"]).pack(anchor="w")
+            val_lbl = ctk.CTkLabel(left, text="0", font=ctk.CTkFont(size=16, weight="bold"), text_color=color)
+            val_lbl.pack(anchor="w")
+            self.kpi_labels[key] = val_lbl
+
+            ctk.CTkLabel(inner, text=icon, font=ctk.CTkFont(size=20)).pack(side="right")
 
         # -------------------------------------------------------------
         # FILTER TABS BAR
@@ -138,6 +206,8 @@ class ChefKDSFrame(ctk.CTkFrame):
         self.tickets_scroll.pack(fill="both", expand=True, padx=20, pady=(0, 15))
 
     def _set_filter(self, filter_code: str):
+        if self.current_filter == filter_code:
+            return
         self.current_filter = filter_code
         palette = theme_manager.get_palette()
         for c, btn in self.filter_buttons.items():
@@ -145,75 +215,115 @@ class ChefKDSFrame(ctk.CTkFrame):
                 btn.configure(fg_color=palette["accent"], text_color="#FFFFFF")
             else:
                 btn.configure(fg_color=palette["bg_secondary"], text_color=palette["text_primary"])
-        self._load_kds_orders()
+        self._rendered_signature = ()  # Invalidate signature to force redraw for new filter
+        self._refresh_kds_data(is_periodic=False)
 
-    def _load_kds_orders(self):
-        palette = theme_manager.get_palette()
+    def _fetch_active_orders(self) -> List[Dict]:
+        """Queries all active kitchen tickets from the database.
 
-        # Query all active kitchen tickets (status not in COMPLETED or CANCELLED)
+        Retrieves any order requiring preparation (initial incoming statuses:
+        PENDING, NEW, RECEIVED, PENDING_ACCEPTANCE, or in-cooking/ready).
+        Excludes only COMPLETED and CANCELLED orders.
+        Orders are ordered with incoming unaccepted tickets first, and newest first within group.
+        """
         sql = """
             SELECT o.id, o.order_number, o.table_number, o.customer_name, o.status,
-                   o.created_at, u.username as server_name,
+                   o.created_at, o.special_instructions, u.username as server_name,
                    (julianday('now', 'localtime') - julianday(o.created_at)) * 24 * 60 as elapsed_mins
             FROM orders o
             LEFT JOIN users u ON o.user_id = u.id
-            WHERE o.status IN ('PENDING', 'ACCEPTED', 'PREPARING', 'READY')
-            ORDER BY o.id ASC;
+            WHERE o.status NOT IN ('COMPLETED', 'CANCELLED')
+            ORDER BY 
+                CASE 
+                    WHEN o.status IN ('PENDING', 'NEW', 'RECEIVED', 'PENDING_ACCEPTANCE') THEN 1
+                    WHEN o.status = 'ACCEPTED' THEN 2
+                    WHEN o.status = 'PREPARING' THEN 3
+                    WHEN o.status = 'READY' THEN 4
+                    ELSE 5
+                END ASC,
+                o.id DESC;
         """
         try:
-            all_active = db.fetchall(sql)
+            return db.fetchall(sql)
         except Exception as e:
             logger.error(f"Error fetching KDS orders: {e}")
-            all_active = []
+            return []
 
+    def _refresh_kds_data(self, is_periodic: bool = False):
+        """Refreshes KDS data without destroying and recreating the entire screen unnecessarily."""
+        if not self._is_active or not self.winfo_exists():
+            return
+
+        all_active = self._fetch_active_orders()
+        palette = theme_manager.get_palette()
+
+        # Update KPI counts in-place
         total_active = len(all_active)
-        new_cnt = len([o for o in all_active if o["status"] == "PENDING"])
+        new_cnt = len([o for o in all_active if o["status"] in ("PENDING", "NEW", "RECEIVED", "PENDING_ACCEPTANCE")])
         accepted_cnt = len([o for o in all_active if o["status"] == "ACCEPTED"])
         prep_cnt = len([o for o in all_active if o["status"] == "PREPARING"])
         ready_cnt = len([o for o in all_active if o["status"] == "READY"])
 
-        # Update KPI cards
-        for w in self.kpi_container.winfo_children():
-            w.destroy()
-
-        kpis = [
-            ("Total Kitchen Tickets", str(total_active), "👨‍🍳", palette["accent"]),
-            ("New Unaccepted (KOT)", str(new_cnt), "📥", "#3B82F6"),
-            ("Cooking In-Progress", str(prep_cnt), "🔥", "#F59E0B"),
-            ("Ready at Pass", str(ready_cnt), "🔔", "#10B981")
-        ]
-
-        for title, val, icon, color in kpis:
-            card = ctk.CTkFrame(
-                self.kpi_container,
-                fg_color=palette["bg_card"],
-                corner_radius=8,
-                border_width=1,
-                border_color=palette["border"],
-                height=65
-            )
-            card.pack(side="left", fill="x", expand=True, padx=4)
-            card.pack_propagate(False)
-
-            inner = ctk.CTkFrame(card, fg_color="transparent")
-            inner.pack(fill="both", expand=True, padx=12, pady=8)
-
-            left = ctk.CTkFrame(inner, fg_color="transparent")
-            left.pack(side="left")
-            ctk.CTkLabel(left, text=title, font=ctk.CTkFont(size=10), text_color=palette["text_secondary"]).pack(anchor="w")
-            ctk.CTkLabel(left, text=val, font=ctk.CTkFont(size=16, weight="bold"), text_color=color).pack(anchor="w")
-
-            ctk.CTkLabel(inner, text=icon, font=ctk.CTkFont(size=20)).pack(side="right")
+        if "total" in self.kpi_labels and self.kpi_labels["total"].winfo_exists():
+            self.kpi_labels["total"].configure(text=str(total_active))
+        if "new" in self.kpi_labels and self.kpi_labels["new"].winfo_exists():
+            self.kpi_labels["new"].configure(text=str(new_cnt))
+        if "prep" in self.kpi_labels and self.kpi_labels["prep"].winfo_exists():
+            self.kpi_labels["prep"].configure(text=str(prep_cnt))
+        if "ready" in self.kpi_labels and self.kpi_labels["ready"].winfo_exists():
+            self.kpi_labels["ready"].configure(text=str(ready_cnt))
 
         # Filter tickets
         if self.current_filter == "ALL":
             filtered_tickets = all_active
+        elif self.current_filter in ("PENDING", "NEW", "RECEIVED", "PENDING_ACCEPTANCE"):
+            filtered_tickets = [o for o in all_active if o["status"] in ("PENDING", "NEW", "RECEIVED", "PENDING_ACCEPTANCE")]
         else:
             filtered_tickets = [o for o in all_active if o["status"] == self.current_filter]
 
-        # Clear existing tickets in scroll
+        # Form signature representing structural ticket state
+        current_signature = (
+            self.current_filter,
+            theme_manager.current_theme,
+            tuple((o["id"], o["status"], o["special_instructions"] if "special_instructions" in o.keys() else "") for o in filtered_tickets)
+        )
+
+        # -------------------------------------------------------------
+        # FAST PATH: If ticket list & statuses have not changed,
+        # ONLY update the timer labels in-place. ZERO widget demolition!
+        # -------------------------------------------------------------
+        if is_periodic and current_signature == self._rendered_signature:
+            for o in filtered_tickets:
+                oid = o["id"]
+                if oid in self._card_timer_labels:
+                    lbl, _ = self._card_timer_labels[oid]
+                    if lbl.winfo_exists():
+                        elapsed = float(o["elapsed_mins"] or 0.0)
+                        is_priority = elapsed > 15.0
+                        time_text = f"⏱️ {int(elapsed)}m ago" if elapsed >= 1.0 else "⏱️ Just now"
+                        if is_priority:
+                            time_text += " ⚠️ HIGH WAIT"
+                        timer_color = "#EF4444" if is_priority else palette["text_secondary"]
+                        lbl.configure(text=time_text, text_color=timer_color)
+            return
+
+        # -------------------------------------------------------------
+        # STRUCTURAL RECONSTRUCTION PATH (New order, status change, filter change)
+        # Preserve scroll position across the update!
+        # -------------------------------------------------------------
+        scroll_y = 0.0
+        try:
+            if hasattr(self.tickets_scroll, "_parent_canvas"):
+                scroll_y = self.tickets_scroll._parent_canvas.yview()[0]
+        except Exception:
+            scroll_y = 0.0
+
+        # Clear scrollable frame widgets cleanly
         for w in self.tickets_scroll.winfo_children():
             w.destroy()
+
+        self._rendered_signature = current_signature
+        self._card_timer_labels.clear()
 
         if not filtered_tickets:
             empty = ctk.CTkFrame(self.tickets_scroll, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
@@ -240,8 +350,9 @@ class ChefKDSFrame(ctk.CTkFrame):
             onum = o["order_number"]
             tbl = o["table_number"] or "Takeaway"
             cust = o["customer_name"] or "Guest"
-            server = o["server_name"] or "POS"
+            server = o["server_name"] or "Customer App"
             created = o["created_at"] or ""
+            special_notes = (o["special_instructions"] if "special_instructions" in o.keys() else "").strip()
             elapsed = float(o["elapsed_mins"] or 0.0)
 
             # High priority / long wait alert (>15 minutes)
@@ -257,7 +368,7 @@ class ChefKDSFrame(ctk.CTkFrame):
             )
             card.grid(row=row_idx, column=col_idx, sticky="nsew", padx=6, pady=6)
 
-            # Ticket Header: Order # + Table + Timer
+            # Ticket Header: Order # + Table
             c_header = ctk.CTkFrame(card, fg_color="transparent")
             c_header.pack(fill="x", padx=12, pady=(10, 4))
 
@@ -271,6 +382,9 @@ class ChefKDSFrame(ctk.CTkFrame):
             # Status Pill
             st_colors = {
                 "PENDING": ("#DBEAFE", "#1D4ED8"),
+                "NEW": ("#DBEAFE", "#1D4ED8"),
+                "RECEIVED": ("#DBEAFE", "#1D4ED8"),
+                "PENDING_ACCEPTANCE": ("#DBEAFE", "#1D4ED8"),
                 "ACCEPTED": ("#EDE9FE", "#6D28D9"),
                 "PREPARING": ("#FEF3C7", "#B45309"),
                 "READY": ("#DCFCE7", "#15803D")
@@ -280,7 +394,7 @@ class ChefKDSFrame(ctk.CTkFrame):
             pill.pack(side="right")
             ctk.CTkLabel(pill, text=st, font=ctk.CTkFont(size=9, weight="bold"), text_color=s_fg).pack(padx=6, pady=2)
 
-            # Metadata Row (Timer & Wait alert)
+            # Metadata Row (Timer & Guest)
             meta_box = ctk.CTkFrame(card, fg_color="transparent")
             meta_box.pack(fill="x", padx=12, pady=(0, 6))
 
@@ -288,8 +402,24 @@ class ChefKDSFrame(ctk.CTkFrame):
             if is_priority:
                 time_text += " ⚠️ HIGH WAIT"
             timer_color = "#EF4444" if is_priority else palette["text_secondary"]
-            ctk.CTkLabel(meta_box, text=time_text, font=ctk.CTkFont(size=10, weight="bold"), text_color=timer_color).pack(side="left")
+            lbl_timer = ctk.CTkLabel(meta_box, text=time_text, font=ctk.CTkFont(size=10, weight="bold"), text_color=timer_color)
+            lbl_timer.pack(side="left")
+            self._card_timer_labels[oid] = (lbl_timer, elapsed)
+
             ctk.CTkLabel(meta_box, text=f"Guest: {cust}", font=ctk.CTkFont(size=10), text_color=palette["text_secondary"]).pack(side="right")
+
+            # Special Kitchen Instructions Banner (if customer requested)
+            if special_notes:
+                note_box = ctk.CTkFrame(card, fg_color=palette["bg_secondary"], corner_radius=6, border_width=1, border_color="#F59E0B")
+                note_box.pack(fill="x", padx=12, pady=(0, 6))
+                ctk.CTkLabel(
+                    note_box,
+                    text=f"📝 Note: {special_notes}",
+                    font=ctk.CTkFont(size=10, weight="bold"),
+                    text_color="#F59E0B",
+                    wraplength=240,
+                    justify="left"
+                ).pack(padx=8, pady=4, anchor="w")
 
             # Dish Items Checklist Box
             items_box = ctk.CTkFrame(card, fg_color=palette["bg_secondary"], corner_radius=6)
@@ -310,7 +440,7 @@ class ChefKDSFrame(ctk.CTkFrame):
             btn_row = ctk.CTkFrame(card, fg_color="transparent")
             btn_row.pack(fill="x", padx=12, pady=(0, 10))
 
-            if st == "PENDING":
+            if st in ("PENDING", "NEW", "RECEIVED", "PENDING_ACCEPTANCE"):
                 ctk.CTkButton(
                     btn_row,
                     text="👍 Accept KOT",
@@ -348,7 +478,15 @@ class ChefKDSFrame(ctk.CTkFrame):
                     text_color="#10B981"
                 ).pack(anchor="center", pady=4)
 
+        # Restore scroll position if previously scrolled
+        try:
+            if hasattr(self.tickets_scroll, "_parent_canvas") and scroll_y > 0.0:
+                self.tickets_scroll._parent_canvas.yview_moveto(scroll_y)
+        except Exception:
+            pass
+
     def _transition_status(self, order_id: int, target_status: str):
+        """Transitions order status through KDS lifecycle and records audit trail."""
         try:
             db.execute("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;", (target_status, order_id))
             db.execute(
@@ -356,6 +494,8 @@ class ChefKDSFrame(ctk.CTkFrame):
                    VALUES ('chef1', ?, 'CHEF_KDS', ?);""",
                 (f"SET_STATUS_{target_status}", f"KDS transitioned Order #{order_id} to {target_status}")
             )
-            self._load_kds_orders()
+            # Invalidate signature to trigger immediate update and show new status
+            self._rendered_signature = ()
+            self._refresh_kds_data(is_periodic=False)
         except Exception as e:
             logger.error(f"Error transitioning order #{order_id} to {target_status}: {e}")
