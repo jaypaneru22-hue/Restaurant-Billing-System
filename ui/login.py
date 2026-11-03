@@ -58,13 +58,13 @@ class ForgotPasswordDialog(ctk.CTkToplevel):
 
 
 class CustomerRegisterDialog(ctk.CTkToplevel):
-    """Registration dialog for dining guests to create a personal customer account."""
+    """Registration dialog for customers to create a personal dining account."""
 
     def __init__(self, master, on_registered: Callable, auth_svc: AuthService = auth_service, **kwargs):
         super().__init__(master, **kwargs)
         self.auth_svc = auth_svc
         self.on_registered = on_registered
-        self.title("RestoPro — Guest Account Registration")
+        self.title("RestoPro — Customer Account Registration")
         self.resizable(False, False)
         center_dialog(self, master, target_width=460, target_height=540)
         self.grab_set()
@@ -94,7 +94,7 @@ class CustomerRegisterDialog(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             card,
-            text="🍽️ Guest Registration",
+            text="🍽️ Customer Registration",
             font=ctk.CTkFont(size=16, weight="bold"),
             text_color=palette.get("heading", palette["text_primary"])
         ).pack(anchor="center", pady=(0, 2))
@@ -351,10 +351,10 @@ class LoginFrame(ctk.CTkFrame):
         )
         self.btn_login.pack(fill="x", pady=(0, 6))
 
-        # Guest Registration Action
+        # Customer Registration Action
         self.btn_register_cust = ctk.CTkButton(
             form_box,
-            text="🍽️ New Guest? Register Dining Account",
+            text="🍽️ New Customer? Register Account",
             font=ctk.CTkFont(size=11, weight="bold"),
             height=30,
             fg_color="transparent",
@@ -383,7 +383,7 @@ class LoginFrame(ctk.CTkFrame):
             ("Manager", "manager1", "Manager@123"),
             ("Cashier", "cashier1", "Cashier@123"),
             ("Chef", "chef1", "Chef@123"),
-            ("Guest", "customer1", "Customer@123"),
+            ("Customer", "customer1", "Customer@123"),
         ]
 
         for label, u, p in demo_users:

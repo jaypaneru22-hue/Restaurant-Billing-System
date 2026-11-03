@@ -286,7 +286,7 @@ class MainWindow(ctk.CTkFrame):
             head_title = "KITCHEN (KDS)"
             head_sub = "Live Order Dispatch"
         elif self.user_role == "CUSTOMER":
-            head_title = "GUEST DINING"
+            head_title = "CUSTOMER DINING"
             head_sub = "Menu & Reviews"
         else:
             head_title = "RESTAURANT ADMIN"
@@ -385,7 +385,7 @@ class MainWindow(ctk.CTkFrame):
                 ("dashboard", "🍽️ Dining Portal & Status", "Alt+D"),
                 ("orders", "🛒 Food Menu & Order", "Alt+N"),
                 ("feedback", "⭐ Reviews & NPS", "Alt+Q"),
-                ("profile", "👤 Guest Profile", "Alt+P"),
+                ("profile", "👤 Customer Profile", "Alt+P"),
             ]
         else:
             # ADMIN — Complete Enterprise Navigation Suite
