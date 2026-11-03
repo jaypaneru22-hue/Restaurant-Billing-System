@@ -16,7 +16,7 @@ from utils.window_utils import center_dialog
 from utils.brand_assets import (
     get_brand_logo,
     get_brand_icon,
-    get_ambience_banner,
+    get_left_branding_banner,
     apply_window_icon,
 )
 
@@ -88,7 +88,7 @@ class CustomerRegisterDialog(ctk.CTkToplevel):
         card.pack(fill="both", expand=True, padx=20, pady=20)
 
         # Prominent RestoPro Logo Showcase
-        logo_img = get_brand_logo(target_width=170)
+        logo_img = get_brand_logo(target_width=160)
         if logo_img:
             logo_frame = ctk.CTkFrame(
                 card,
@@ -180,8 +180,10 @@ class CustomerRegisterDialog(ctk.CTkToplevel):
 class LoginFrame(ctk.CTkFrame):
     """Premium split-screen authentication interface for RestoPro.
 
-    Left panel: Cinematic restaurant ambience with brand identity.
-    Right panel: Clean, elevated login card with full auth workflow.
+    Left panel (~55%): Cinematic restaurant ambience with brand identity, logo,
+    tagline, headline, and 3 compact feature highlights. Always dark & premium.
+    Right panel (~45%): Clean, elevated authentication card with logo, inputs,
+    theme toggle, and compact demo access.
     All authentication, session handling and role-routing logic preserved.
     """
 
@@ -200,121 +202,38 @@ class LoginFrame(ctk.CTkFrame):
         self._load_remembered_staff()
 
     # ── Left Panel: Restaurant Branding Hero ──────────────────────────
-    def _build_left_panel(self, parent, palette, is_dark):
-        """Builds the cinematic left branding panel (~55% width)."""
-        left = ctk.CTkFrame(parent, corner_radius=0, fg_color="#0B0B14" if is_dark else "#E8EAF2")
+    def _build_left_panel(self, parent):
+        """Builds the cinematic left branding panel (~55% width). Always dark #0B0B12."""
+        left = ctk.CTkFrame(parent, corner_radius=0, fg_color="#0B0B12")
         left.grid(row=0, column=0, sticky="nsew")
 
-        # Bind to resize so the ambience background scales dynamically
-        left.bind("<Configure>", lambda e: self._on_left_resize(e, left, is_dark))
-
-        # Background ambience image label (fills entire left panel)
-        self._bg_label = ctk.CTkLabel(left, text="", fg_color="transparent")
+        # Initial render with default geometry so banner is immediately visible
+        init_banner = get_left_branding_banner(750, 768)
+        if init_banner:
+            self._img_refs["left_banner"] = init_banner
+            self._bg_label = ctk.CTkLabel(left, image=init_banner, text="", fg_color="#0B0B12")
+        else:
+            self._bg_label = ctk.CTkLabel(left, text="", fg_color="#0B0B12")
         self._bg_label.place(x=0, y=0, relwidth=1, relheight=1)
 
-        # Content overlay (centered, transparent background)
-        content = ctk.CTkFrame(self._bg_label, fg_color="transparent")
-        content.place(relx=0.5, rely=0.48, anchor="center", relwidth=0.85)
-
-        # RestoPro Logo (strict aspect ratio)
-        logo_img = get_brand_logo(target_width=200)
-        if logo_img:
-            self._img_refs["hero_logo"] = logo_img
-            ctk.CTkLabel(content, image=logo_img, text="").pack(anchor="w", pady=(0, 20))
-
-        # Tagline badge pill
-        tag_pill = ctk.CTkFrame(
-            content,
-            fg_color="#1E1B4B" if is_dark else "#312E81",
-            corner_radius=20,
-            border_width=1,
-            border_color="#3730A3" if is_dark else "#4338CA",
-        )
-        tag_pill.pack(anchor="w", pady=(0, 16))
-        ctk.CTkLabel(
-            tag_pill,
-            text="  RESTAURANT MANAGEMENT PLATFORM  ",
-            font=ctk.CTkFont(size=10, weight="bold"),
-            text_color="#C7D2FE",
-        ).pack(padx=12, pady=5)
-
-        # Headline
-        ctk.CTkLabel(
-            content,
-            text="A smarter way to\nmanage your restaurant.",
-            font=ctk.CTkFont(size=30, weight="bold"),
-            text_color="#FFFFFF",
-            justify="left",
-        ).pack(anchor="w", pady=(0, 12))
-
-        # Supporting text
-        ctk.CTkLabel(
-            content,
-            text="Manage orders, billing, kitchen operations and\nrestaurant performance \u2014 all in one place.",
-            font=ctk.CTkFont(size=13),
-            text_color="#94A3B8",
-            justify="left",
-        ).pack(anchor="w", pady=(0, 28))
-
-        # Feature highlight cards
-        features = [
-            ("lightning", "Real-Time POS Billing",
-             "Lightning-fast counter checkout, split bills & thermal print."),
-            ("chef", "Kitchen Display System",
-             "Live ticket coordination between captains, chefs & cashiers."),
-            ("chart", "Analytics & Audit Trail",
-             "Daily sales tracking, shift closeouts & automated tax audit logs."),
-        ]
-        # Map text icons for features
-        icons = {"lightning": "\u26A1", "chef": "\U0001F373", "chart": "\U0001F4CA"}
-
-        for key, title, desc in features:
-            card = ctk.CTkFrame(
-                content,
-                fg_color="#12131F" if is_dark else "#1E1B4B",
-                corner_radius=12,
-                border_width=1,
-                border_color="#232438" if is_dark else "#3730A3",
-            )
-            card.pack(fill="x", pady=4)
-
-            icon_lbl = ctk.CTkLabel(
-                card, text=icons.get(key, ""), font=ctk.CTkFont(size=18), width=40,
-                text_color="#C7D2FE",
-            )
-            icon_lbl.pack(side="left", padx=(14, 6), pady=10)
-
-            txt_box = ctk.CTkFrame(card, fg_color="transparent")
-            txt_box.pack(side="left", fill="both", expand=True, padx=(0, 14), pady=8)
-
-            ctk.CTkLabel(
-                txt_box, text=title,
-                font=ctk.CTkFont(size=12, weight="bold"),
-                text_color="#F1F5F9", anchor="w",
-            ).pack(fill="x")
-            ctk.CTkLabel(
-                txt_box, text=desc,
-                font=ctk.CTkFont(size=10),
-                text_color="#94A3B8", anchor="w",
-            ).pack(fill="x")
-
+        # Dynamic resize callback
+        left.bind("<Configure>", self._on_left_resize)
         return left
 
-    def _on_left_resize(self, event, left_frame, is_dark):
-        """Dynamically resizes the ambience background when the left panel resizes."""
-        w = event.width
-        h = event.height
-        if w < 50 or h < 50:
+    def _on_left_resize(self, event):
+        """Dynamically re-renders the left branding banner when resized."""
+        w, h = event.width, event.height
+        if w < 100 or h < 100:
             return
 
-        cache_key = ("_resize_bg", w, h, is_dark)
-        if hasattr(self, "_last_bg_key") and self._last_bg_key == cache_key:
+        cache_key = ("_banner_size", w, h)
+        if hasattr(self, "_last_banner_key") and self._last_banner_key == cache_key:
             return
-        self._last_bg_key = cache_key
+        self._last_banner_key = cache_key
 
-        banner = get_ambience_banner(w, h, is_dark=is_dark)
+        banner = get_left_branding_banner(w, h)
         if banner:
-            self._img_refs["bg_banner"] = banner
+            self._img_refs["left_banner"] = banner
             self._bg_label.configure(image=banner)
 
     # ── Right Panel: Authentication Workspace ─────────────────────────
@@ -327,20 +246,20 @@ class LoginFrame(ctk.CTkFrame):
         )
         right.grid(row=0, column=1, sticky="nsew")
 
-        # Theme toggle in top-right corner
+        # Theme toggle in top-right corner with explicit active theme badge
         toggle_bar = ctk.CTkFrame(right, fg_color="transparent")
-        toggle_bar.pack(anchor="ne", padx=20, pady=(14, 0))
+        toggle_bar.pack(anchor="ne", padx=24, pady=(16, 0))
 
-        toggle_text = "Light Mode" if is_dark else "Dark Mode"
+        toggle_text = "🌙 Dark Theme" if is_dark else "☀️ Light Theme"
         self.theme_btn = ctk.CTkButton(
             toggle_bar,
             text=toggle_text,
-            width=100,
+            width=114,
             height=30,
             font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color=palette.get("accent_light", palette["bg_secondary"]),
-            text_color=palette["accent"],
-            hover_color=palette["border"],
+            fg_color="#1D1D29" if is_dark else "#E2E8F0",
+            text_color="#6657F5" if is_dark else "#2563EB",
+            hover_color="#292938" if is_dark else "#CBD5E1",
             corner_radius=8,
             command=self._handle_theme_toggle,
         )
@@ -348,7 +267,7 @@ class LoginFrame(ctk.CTkFrame):
 
         # Vertically centered login card container
         card_container = ctk.CTkFrame(right, fg_color="transparent")
-        card_container.pack(expand=True, fill="both")
+        card_container.pack(expand=True, fill="both", padx=16, pady=8)
 
         # Elevated login card
         card = ctk.CTkFrame(
@@ -357,13 +276,19 @@ class LoginFrame(ctk.CTkFrame):
             corner_radius=16,
             border_width=1,
             border_color=palette["border"],
-            width=420,
+            width=430,
         )
-        card.place(relx=0.5, rely=0.48, anchor="center")
+        card.place(relx=0.5, rely=0.49, anchor="center")
 
-        # ─── Card Header ───
+        # ─── Card Header with RestoPro Logo ───
         header = ctk.CTkFrame(card, fg_color="transparent")
-        header.pack(fill="x", padx=32, pady=(28, 16))
+        header.pack(fill="x", padx=32, pady=(22, 12))
+
+        # RestoPro logo on the right form side
+        logo_right = get_brand_logo(target_width=140)
+        if logo_right:
+            self._img_refs["right_logo"] = logo_right
+            ctk.CTkLabel(header, image=logo_right, text="").pack(anchor="w", pady=(0, 8))
 
         ctk.CTkLabel(
             header,
@@ -377,20 +302,20 @@ class LoginFrame(ctk.CTkFrame):
             text="Sign in to continue to RestoPro.",
             font=ctk.CTkFont(size=13),
             text_color=palette["text_secondary"],
-        ).pack(anchor="w", pady=(4, 0))
+        ).pack(anchor="w", pady=(3, 0))
 
         # ─── Form Fields ───
         form = ctk.CTkFrame(card, fg_color="transparent")
-        form.pack(fill="x", padx=32, pady=(0, 8))
+        form.pack(fill="x", padx=32, pady=(0, 6))
 
-        # Username
+        # Username / Staff ID
         ctk.CTkLabel(
             form,
             text="Staff ID or Username",
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color=palette.get("form_label", palette["text_primary"]),
             anchor="w",
-        ).pack(fill="x", pady=(0, 5))
+        ).pack(fill="x", pady=(0, 4))
 
         self.username_entry = ctk.CTkEntry(
             form,
@@ -399,7 +324,7 @@ class LoginFrame(ctk.CTkFrame):
             font=ctk.CTkFont(size=13),
             corner_radius=10,
         )
-        self.username_entry.pack(fill="x", pady=(0, 14))
+        self.username_entry.pack(fill="x", pady=(0, 12))
 
         # Password
         ctk.CTkLabel(
@@ -408,10 +333,10 @@ class LoginFrame(ctk.CTkFrame):
             font=ctk.CTkFont(size=12, weight="bold"),
             text_color=palette.get("form_label", palette["text_primary"]),
             anchor="w",
-        ).pack(fill="x", pady=(0, 5))
+        ).pack(fill="x", pady=(0, 4))
 
         pass_row = ctk.CTkFrame(form, fg_color="transparent")
-        pass_row.pack(fill="x", pady=(0, 10))
+        pass_row.pack(fill="x", pady=(0, 8))
 
         self.password_entry = ctk.CTkEntry(
             pass_row,
@@ -437,9 +362,9 @@ class LoginFrame(ctk.CTkFrame):
         )
         self.btn_toggle_pass.pack(side="right")
 
-        # Remember + Forgot row
+        # Remember Staff ID + Forgot Password
         action_row = ctk.CTkFrame(form, fg_color="transparent")
-        action_row.pack(fill="x", pady=(2, 10))
+        action_row.pack(fill="x", pady=(2, 8))
 
         self.remember_var = ctk.BooleanVar(value=False)
         self.chk_remember = ctk.CTkCheckBox(
@@ -465,7 +390,7 @@ class LoginFrame(ctk.CTkFrame):
         )
         btn_forgot.pack(side="right")
 
-        # Error label
+        # Error notification label
         self.error_label = ctk.CTkLabel(
             form,
             text="",
@@ -474,28 +399,28 @@ class LoginFrame(ctk.CTkFrame):
             wraplength=360,
             justify="center",
         )
-        self.error_label.pack(fill="x", pady=(0, 8))
+        self.error_label.pack(fill="x", pady=(0, 6))
 
-        # Sign In button
+        # Sign In Primary CTA Button
         self.btn_login = ctk.CTkButton(
             form,
             text="Sign In",
             font=ctk.CTkFont(size=15, weight="bold"),
-            height=46,
+            height=48,
             fg_color=palette["accent"],
             hover_color=palette["accent_hover"],
             text_color="#FFFFFF",
             corner_radius=10,
             command=self._handle_login,
         )
-        self.btn_login.pack(fill="x", pady=(0, 8))
+        self.btn_login.pack(fill="x", pady=(0, 6))
 
         # Customer registration link
         self.btn_register_cust = ctk.CTkButton(
             form,
             text="New Customer? Register Account",
-            font=ctk.CTkFont(size=12, weight="bold"),
-            height=32,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            height=28,
             fg_color="transparent",
             hover_color=palette["bg_secondary"],
             text_color=palette["accent"],
@@ -503,23 +428,23 @@ class LoginFrame(ctk.CTkFrame):
         )
         self.btn_register_cust.pack(fill="x", pady=(0, 6))
 
-        # Quick demo login row
+        # Compact Demo Access Section at bottom
         demo_box = ctk.CTkFrame(
             form,
             fg_color=palette["bg_secondary"] if is_dark else palette.get("bg_card_subtle", "#F1F5F9"),
-            corner_radius=10,
+            corner_radius=8,
         )
-        demo_box.pack(fill="x", pady=(4, 0))
+        demo_box.pack(fill="x", pady=(2, 0))
 
         ctk.CTkLabel(
             demo_box,
-            text="QUICK DEMO LOGIN",
+            text="DEMO ACCESS",
             font=ctk.CTkFont(size=9, weight="bold"),
             text_color=palette["text_muted"],
-        ).pack(anchor="w", padx=12, pady=(8, 4))
+        ).pack(anchor="w", padx=10, pady=(6, 3))
 
         roles_row = ctk.CTkFrame(demo_box, fg_color="transparent")
-        roles_row.pack(fill="x", padx=8, pady=(0, 8))
+        roles_row.pack(fill="x", padx=6, pady=(0, 6))
 
         demo_users = [
             ("Admin", "admin", "Admin@123"),
@@ -533,19 +458,19 @@ class LoginFrame(ctk.CTkFrame):
             ctk.CTkButton(
                 roles_row,
                 text=label,
-                width=62,
-                height=28,
+                width=58,
+                height=24,
                 font=ctk.CTkFont(size=10, weight="bold"),
                 fg_color=palette["bg_card"] if is_dark else palette["border"],
                 hover_color=palette["accent"],
                 text_color=palette["text_primary"],
-                corner_radius=8,
+                corner_radius=6,
                 command=lambda un=u, pw=p: self._quick_login(un, pw),
             ).pack(side="left", expand=True, padx=2)
 
         # Footer
         footer = ctk.CTkFrame(card, fg_color="transparent")
-        footer.pack(fill="x", padx=32, pady=(8, 22))
+        footer.pack(fill="x", padx=32, pady=(8, 18))
 
         ctk.CTkLabel(
             footer,
@@ -565,14 +490,14 @@ class LoginFrame(ctk.CTkFrame):
     def _build_ui(self):
         palette = theme_manager.get_palette()
         is_dark = (theme_manager.current_theme == "dark")
-        self.configure(fg_color=palette.get("app_bg", palette["bg_primary"]))
+        self.configure(fg_color="#0B0B12" if is_dark else palette.get("app_bg", "#F8FAFC"))
 
         # 2-column grid: left ~55%, right ~45%
         self.grid_columnconfigure(0, weight=11)
         self.grid_columnconfigure(1, weight=9)
         self.grid_rowconfigure(0, weight=1)
 
-        self._build_left_panel(self, palette, is_dark)
+        self._build_left_panel(self)
         self._build_right_panel(self, palette, is_dark)
 
     # ── Preserved Authentication Logic ────────────────────────────────
@@ -596,6 +521,8 @@ class LoginFrame(ctk.CTkFrame):
         for child in self.winfo_children():
             child.destroy()
         self._img_refs.clear()
+        if hasattr(self, "_last_banner_key"):
+            delattr(self, "_last_banner_key")
         self._build_ui()
         if saved_user and hasattr(self, "username_entry"):
             self.username_entry.delete(0, "end")
@@ -605,6 +532,7 @@ class LoginFrame(ctk.CTkFrame):
         CustomerRegisterDialog(self.winfo_toplevel(), on_registered=self.on_login_success)
 
     def _quick_login(self, username: str, password: str):
+        """Fills credentials and executes full production password hashing and authentication."""
         self.username_entry.delete(0, "end")
         self.username_entry.insert(0, username)
         self.password_entry.delete(0, "end")
