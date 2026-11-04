@@ -13,9 +13,9 @@ from utils.logger import logger
 class ChefKDSFrame(ctk.CTkFrame):
     """Kitchen Display System for chefs and kitchen expeditor with real-time ticket progression."""
 
-    def __init__(self, master, initial_filter: str = "ALL", **kwargs):
+    def __init__(self, master, initial_filter: str = "ALL", order_repo: Optional[OrderRepository] = None, **kwargs):
         super().__init__(master, **kwargs)
-        self.order_repo = OrderRepository(db)
+        self.order_repo = order_repo or OrderRepository(db)
         self.current_filter = initial_filter  # ALL, PENDING, ACCEPTED, PREPARING, READY
         self._auto_refresh_id: Optional[str] = None
         self._is_active: bool = True
@@ -244,7 +244,7 @@ class ChefKDSFrame(ctk.CTkFrame):
                 o.id DESC;
         """
         try:
-            return db.fetchall(sql)
+            return self.order_repo.db.fetchall(sql)
         except Exception as e:
             logger.error(f"Error fetching KDS orders: {e}")
             return []
@@ -488,8 +488,8 @@ class ChefKDSFrame(ctk.CTkFrame):
     def _transition_status(self, order_id: int, target_status: str):
         """Transitions order status through KDS lifecycle and records audit trail."""
         try:
-            db.execute("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;", (target_status, order_id))
-            db.execute(
+            self.order_repo.db.execute("UPDATE orders SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?;", (target_status, order_id))
+            self.order_repo.db.execute(
                 """INSERT INTO audit_logs (username, action, module, details)
                    VALUES ('chef1', ?, 'CHEF_KDS', ?);""",
                 (f"SET_STATUS_{target_status}", f"KDS transitioned Order #{order_id} to {target_status}")

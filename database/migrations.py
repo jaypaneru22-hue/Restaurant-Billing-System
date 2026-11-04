@@ -306,21 +306,6 @@ def run_migrations(conn: sqlite3.Connection) -> None:
         w_id = cursor.lastrowid
         cursor.execute("INSERT INTO user_settings (user_id, theme, currency) VALUES (?, 'dark', '₹');", (w_id,))
 
-    cursor.execute("SELECT COUNT(*) FROM customer_feedback;")
-    if cursor.fetchone()[0] == 0:
-        feedbacks = [
-            (None, "Aarav Sharma", "Table 4", 5, "Outstanding butter chicken and quick counter service! Will visit again."),
-            (None, "Priya Nair", "Table 2", 5, "Paneer tikka was exceptionally fresh and smoky. Loved the service."),
-            (None, "Rohan Verma", "Table 7", 4, "Great food taste and neat billing receipt. Garlic naan was very soft."),
-            (None, "Ananya Sen", "Takeaway", 5, "Fast takeaway packing and authentic Biryani aroma. 5 stars!"),
-            (None, "Vikram Malhotra", "Table 1", 4, "Crispy veg spring rolls and refreshing mint cooler. Friendly staff."),
-        ]
-        cursor.executemany(
-            """INSERT INTO customer_feedback (order_id, customer_name, table_number, rating, comment)
-               VALUES (?, ?, ?, ?, ?);""",
-            feedbacks
-        )
-
     conn.commit()
 
 

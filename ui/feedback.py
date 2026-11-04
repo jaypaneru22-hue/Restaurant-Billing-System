@@ -209,19 +209,19 @@ class CustomerFeedbackFrame(ctk.CTkFrame):
 
         self.all_feedbacks = feedbacks
         total_rev = len(feedbacks)
-        avg_score = (sum(f["rating"] for f in feedbacks) / total_rev) if total_rev > 0 else 5.0
+        avg_score_str = f"⭐ {sum(f['rating'] for f in feedbacks) / total_rev:.2f} / 5.0" if total_rev > 0 else "No reviews yet"
         five_star_cnt = len([f for f in feedbacks if f["rating"] == 5])
-        csat_pct = (len([f for f in feedbacks if f["rating"] >= 4]) / total_rev * 100) if total_rev > 0 else 100.0
+        csat_str = f"{(len([f for f in feedbacks if f['rating'] >= 4]) / total_rev * 100):.1f}% Positive" if total_rev > 0 else "0% (No data)"
 
         palette = theme_manager.get_palette()
         for w in self.kpi_container.winfo_children():
             w.destroy()
 
         kpi_specs = [
-            ("Average Guest Rating", f"⭐ {avg_score:.2f} / 5.0", "🌟", "#F59E0B"),
+            ("Average Guest Rating", avg_score_str, "🌟", "#F59E0B"),
             ("Total Reviews Logged", str(total_rev), "📝", "#3B82F6"),
             ("5-Star Ratings", f"{five_star_cnt} reviews", "💎", "#10B981"),
-            ("CSAT Satisfaction (Q08)", f"{csat_pct:.1f}% Positive", "🎯", "#8B5CF6")
+            ("CSAT Satisfaction (Q08)", csat_str, "🎯", "#8B5CF6")
         ]
 
         for title, val, icon, _acc in kpi_specs:

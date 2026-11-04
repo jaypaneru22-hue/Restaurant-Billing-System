@@ -136,14 +136,14 @@ class RestaurantBillingApp(ctk.CTk):
 def main():
     parser = argparse.ArgumentParser(description=f"{APP_NAME} Point of Sale System")
     parser.add_argument("--headless-check", action="store_true", help="Initialize and verify database without GUI")
-    parser.add_argument("--no-demo-seed", action="store_true", help="Skip demo transaction seeding")
+    parser.add_argument("--seed-demo", action="store_true", help="Explicitly populate sample demo transactions (Default: False)")
     args = parser.parse_args()
 
     # Step 1: Initialize Database & Core Seeds
     initialize_database()
 
-    # Step 2: Seed Demonstration transactions unless disabled
-    if not args.no_demo_seed:
+    # Step 2: Seed Demonstration transactions ONLY if explicitly commanded
+    if args.seed_demo:
         seed_demo_transactions()
 
     if args.headless_check:

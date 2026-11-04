@@ -18,7 +18,6 @@ class SecurityAuditFrame(ctk.CTkFrame):
         self.db = db_manager
 
         theme_manager.subscribe(self.on_theme_changed)
-        self._seed_recent_audit_if_empty()
         self._build_ui()
         self.refresh_logs()
 
@@ -31,31 +30,6 @@ class SecurityAuditFrame(ctk.CTkFrame):
             palette = theme_manager.get_palette()
             self.configure(fg_color=palette["bg_primary"])
             self.refresh_logs()
-
-    def _seed_recent_audit_if_empty(self):
-        """Seeds real historical audit trail from existing orders, bills and users if table is empty."""
-        count = self.db.fetchone("SELECT COUNT(*) AS c FROM audit_logs;")["c"]
-        if count == 0:
-            with self.db.transaction() as conn:
-                cur = conn.cursor()
-                # 1. System initialization
-                cur.execute(
-                    "INSERT INTO audit_logs (username, action, module, details, created_at) VALUES ('system', 'SYSTEM_INIT', 'DATABASE', 'SQLite database schema & seed catalog initialized', CURRENT_TIMESTAMP);"
-                )
-                # 2. Staff creations
-                users = self.db.fetchall("SELECT username, role, created_at FROM users;")
-                for u in users:
-                    cur.execute(
-                        "INSERT INTO audit_logs (username, action, module, details, created_at) VALUES (?, 'USER_CREATED', 'STAFF', ?, ?);",
-                        ("admin", f"Account created with role {u['role']}", u["created_at"])
-                    )
-                # 3. Recent bills
-                bills = self.db.fetchall("SELECT bill_number, final_total, payment_method, billed_at FROM bills ORDER BY id DESC LIMIT 10;")
-                for b in bills:
-                    cur.execute(
-                        "INSERT INTO audit_logs (username, action, module, details, created_at) VALUES (?, 'BILL_SETTLED', 'BILLING', ?, ?);",
-                        ("cashier1", f"Settled bill {b['bill_number']} for Rs.{b['final_total']} via {b['payment_method']}", b["billed_at"])
-                    )
 
     def _build_ui(self):
         palette = theme_manager.get_palette()

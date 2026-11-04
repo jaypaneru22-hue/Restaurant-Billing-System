@@ -5,27 +5,31 @@ from services.order_service import OrderService
 from services.billing_service import BillingService
 from services.auth_service import AuthService
 from services.menu_service import MenuService
+from repositories.order_repository import OrderRepository
+from repositories.menu_repository import MenuRepository
+from repositories.user_repository import UserRepository
+from repositories.billing_repository import BillingRepository
 from models.order import Order
 
 
 @pytest.fixture
-def order_svc():
-    return OrderService()
+def order_svc(clean_db_manager):
+    return OrderService(order_repo=OrderRepository(clean_db_manager), menu_repo=MenuRepository(clean_db_manager))
 
 
 @pytest.fixture
-def auth_svc():
-    return AuthService()
+def auth_svc(clean_db_manager):
+    return AuthService(user_repo=UserRepository(clean_db_manager))
 
 
 @pytest.fixture
-def menu_svc():
-    return MenuService()
+def menu_svc(clean_db_manager):
+    return MenuService(menu_repo=MenuRepository(clean_db_manager))
 
 
 @pytest.fixture
-def billing_svc():
-    return BillingService()
+def billing_svc(clean_db_manager):
+    return BillingService(billing_repo=BillingRepository(clean_db_manager), order_repo=OrderRepository(clean_db_manager))
 
 
 def test_customer_checkout_flow_success(order_svc, auth_svc, menu_svc):
