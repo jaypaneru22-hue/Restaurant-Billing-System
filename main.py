@@ -1,4 +1,5 @@
 """Application entry point and GUI lifecycle coordinator."""
+import os
 import sys
 import argparse
 from datetime import datetime, timedelta
@@ -137,6 +138,8 @@ def main():
     parser = argparse.ArgumentParser(description=f"{APP_NAME} Point of Sale System")
     parser.add_argument("--headless-check", action="store_true", help="Initialize and verify database without GUI")
     parser.add_argument("--seed-demo", action="store_true", help="Explicitly populate sample demo transactions (Default: False)")
+    parser.add_argument("--with-server", action="store_true", help="Start background multi-device HTTP server for customer mobile access")
+    parser.add_argument("--server-port", type=int, default=int(os.getenv("RESTOPRO_PORT", 8080)), help="Port for customer web server")
     args = parser.parse_args()
 
     # Step 1: Initialize Database & Core Seeds
@@ -145,6 +148,20 @@ def main():
     # Step 2: Seed Demonstration transactions ONLY if explicitly commanded
     if args.seed_demo:
         seed_demo_transactions()
+
+    # Optional: Start background multi-device HTTP server daemon
+    if args.with_server or os.getenv("RESTOPRO_RUN_SERVER", "").lower() in ("1", "true"):
+        import threading
+        from api.http_server import run_http_server
+        def _run_bg():
+            try:
+                srv = run_http_server(host="0.0.0.0", port=args.server_port)
+                srv.serve_forever()
+            except Exception as e:
+                logger.error(f"Background HTTP server error: {e}")
+        t = threading.Thread(target=_run_bg, daemon=True)
+        t.start()
+        print(f"Multi-device customer server active at http://0.0.0.0:{args.server_port}/")
 
     if args.headless_check:
         print(f"System verified cleanly in headless mode. All database tables and seeds operational.")

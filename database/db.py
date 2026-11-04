@@ -15,10 +15,13 @@ class DatabaseManager:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
     def get_connection(self) -> sqlite3.Connection:
-        """Creates and returns a connection with foreign keys enabled and Row factory."""
-        conn = sqlite3.connect(self.db_path, timeout=10.0)
+        """Creates and returns a connection with foreign keys enabled, WAL mode, and Row factory."""
+        conn = sqlite3.connect(self.db_path, timeout=30.0)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON;")
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA busy_timeout = 30000;")
+        conn.execute("PRAGMA synchronous = NORMAL;")
         return conn
 
     @contextmanager

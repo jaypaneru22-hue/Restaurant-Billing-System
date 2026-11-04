@@ -119,6 +119,32 @@ CREATE TABLE IF NOT EXISTS service_requests (
     FOREIGN KEY (assigned_waiter_id) REFERENCES users(id)
 );
 
+-- Multi-user independent customer session tokens
+CREATE TABLE IF NOT EXISTS customer_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token TEXT UNIQUE NOT NULL,
+    user_id INTEGER NOT NULL,
+    device_info TEXT DEFAULT '',
+    ip_address TEXT DEFAULT '',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Multi-user persistent customer shopping carts
+CREATE TABLE IF NOT EXISTS customer_carts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    menu_item_id INTEGER NOT NULL,
+    quantity INTEGER NOT NULL CHECK(quantity > 0),
+    special_instructions TEXT DEFAULT '',
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, menu_item_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (menu_item_id) REFERENCES menu_items(id) ON DELETE CASCADE
+);
+
 -- Performance and reporting indexes
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
@@ -126,6 +152,9 @@ CREATE INDEX IF NOT EXISTS idx_bills_billed_at ON bills(billed_at);
 CREATE INDEX IF NOT EXISTS idx_menu_category ON menu_items(category);
 CREATE INDEX IF NOT EXISTS idx_service_requests_status ON service_requests(status);
 CREATE INDEX IF NOT EXISTS idx_service_requests_waiter ON service_requests(assigned_waiter_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_token ON customer_sessions(token);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON customer_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_carts_user_id ON customer_carts(user_id);
 """
 
 

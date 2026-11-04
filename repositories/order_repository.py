@@ -1,4 +1,5 @@
 """Repository for orders and order line items persistence."""
+import sqlite3
 from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 from decimal import Decimal
@@ -12,15 +13,23 @@ class OrderRepository:
     def __init__(self, db_manager: DatabaseManager = db):
         self.db = db_manager
 
-    def generate_order_number(self) -> str:
-        """Generates a sequential daily order code: ORD-YYYYMMDD-XXXX."""
+    def generate_order_number(self, cursor: Optional[sqlite3.Cursor] = None) -> str:
+        """Generates a sequential daily order code: ORD-YYYYMMDD-XXXX with collision safety."""
         today_str = datetime.now().strftime("%Y%m%d")
         prefix = f"ORD-{today_str}-%"
-        row = self.db.fetchone(
-            "SELECT COUNT(*) FROM orders WHERE order_number LIKE ?;",
-            (prefix,)
-        )
-        count = (row[0] if row else 0) + 1
+        if cursor:
+            cursor.execute("SELECT order_number FROM orders WHERE order_number LIKE ? ORDER BY id DESC LIMIT 1;", (prefix,))
+            row = cursor.fetchone()
+        else:
+            row = self.db.fetchone("SELECT order_number FROM orders WHERE order_number LIKE ? ORDER BY id DESC LIMIT 1;", (prefix,))
+        if row and row[0]:
+            try:
+                last_seq = int(str(row[0]).split("-")[-1])
+                count = last_seq + 1
+            except Exception:
+                count = 1
+        else:
+            count = 1
         return f"ORD-{today_str}-{count:04d}"
 
     def get_by_id(self, order_id: int) -> Optional[Order]:
@@ -96,32 +105,44 @@ class OrderRepository:
             raise ValueError("Please add at least one item before proceeding.")
 
         from datetime import datetime
-        order_number = self.generate_order_number()
         created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with self.db.transaction() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """INSERT INTO orders (order_number, user_id, table_number, customer_name, status, special_instructions, created_at)
-                   VALUES (?, ?, ?, ?, 'PENDING', ?, ?);""",
-                (order_number, user_id, table_number.strip(), customer_name.strip(), special_instructions.strip(), created_at)
-            )
-            order_id = cursor.lastrowid
 
-            for item in items:
-                cursor.execute(
-                    """INSERT INTO order_items (order_id, menu_item_id, item_name, unit_price, quantity, line_total)
-                       VALUES (?, ?, ?, ?, ?, ?);""",
-                    (
-                        order_id,
-                        item.menu_item_id,
-                        item.item_name,
-                        str(item.unit_price.quantize(Decimal("0.01"))),
-                        item.quantity,
-                        str(item.line_total.quantize(Decimal("0.01")))
+        max_retries = 5
+        order_id = None
+        for attempt in range(max_retries):
+            try:
+                with self.db.transaction() as conn:
+                    cursor = conn.cursor()
+                    order_number = self.generate_order_number(cursor)
+                    cursor.execute(
+                        """INSERT INTO orders (order_number, user_id, table_number, customer_name, status, special_instructions, created_at)
+                           VALUES (?, ?, ?, ?, 'PENDING', ?, ?);""",
+                        (order_number, user_id, table_number.strip(), customer_name.strip(), special_instructions.strip(), created_at)
                     )
-                )
-            logger.info(f"Order created: id={order_id}, order_number={order_number}, total_items={len(items)}")
-        return self.get_by_id(order_id)
+                    order_id = cursor.lastrowid
+
+                    for item in items:
+                        cursor.execute(
+                            """INSERT INTO order_items (order_id, menu_item_id, item_name, unit_price, quantity, line_total)
+                               VALUES (?, ?, ?, ?, ?, ?);""",
+                            (
+                                order_id,
+                                item.menu_item_id,
+                                item.item_name,
+                                str(item.unit_price.quantize(Decimal("0.01"))),
+                                item.quantity,
+                                str(item.line_total.quantize(Decimal("0.01")))
+                            )
+                        )
+                    logger.info(f"Order created: id={order_id}, order_number={order_number}, total_items={len(items)}")
+                # Return outside the transaction block so the transaction is committed
+                if order_id:
+                    return self.get_by_id(order_id)
+            except Exception as e:
+                if "UNIQUE constraint failed: orders.order_number" in str(e) and attempt < max_retries - 1:
+                    logger.warning(f"Concurrent order number collision detected, retrying (attempt {attempt+1}/{max_retries})...")
+                    continue
+                raise
 
     def update_order_items(self, order_id: int, items: List[OrderItem]) -> bool:
         """Replaces items for a PENDING order within a transaction."""

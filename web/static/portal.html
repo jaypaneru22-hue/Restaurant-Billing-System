@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#171323">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>RestoPro — Gourmet Dining & Mobile Ordering</title>
+  <link rel="stylesheet" href="/portal.css">
+</head>
+<body>
+  <!-- TOP APP BAR -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand-box">
+        <div class="brand-logo-icon">🍽️</div>
+        <div>
+          <h1 class="brand-title">RESTOPRO</h1>
+          <p class="brand-sub">Gourmet Dining Experience</p>
+        </div>
+      </div>
+      
+      <div class="user-status-box" id="userHeaderBox">
+        <span class="user-pill" id="userGreeting">Guest Diner</span>
+        <button class="btn-sm btn-logout" id="btnLogout" onclick="App.logout()">Sign Out</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- TABLE SELECTION BAR -->
+  <section class="table-bar" id="tableBar">
+    <div class="table-bar-inner">
+      <span class="table-icon">🪑</span>
+      <label for="tableSelect" class="table-label">Dining Location:</label>
+      <select id="tableSelect" class="table-dropdown" onchange="App.onTableChange()">
+        <option value="Table 1">Table 1 (Main Dining)</option>
+        <option value="Table 2">Table 2 (Main Dining)</option>
+        <option value="Table 3">Table 3 (Patio Garden)</option>
+        <option value="Table 4">Table 4 (Patio Garden)</option>
+        <option value="Table 5">Table 5 (Family Section)</option>
+        <option value="Takeaway">Takeaway / Self-Pickup</option>
+      </select>
+      <button class="btn-waiter-call" onclick="App.openServiceModal()">🛎️ Call Waiter</button>
+    </div>
+  </section>
+
+  <!-- MAIN APP CONTAINER -->
+  <main class="app-main">
+    <!-- VIEW: MENU CATALOG -->
+    <div id="viewMenu" class="app-view active">
+      <div class="search-bar-box">
+        <input type="text" id="menuSearch" class="search-input" placeholder="🔍 Search gourmet dishes, curries, beverages..." oninput="App.onSearchInput()">
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="category-pills" id="categoryPills">
+        <button class="pill-btn active" data-cat="All" onclick="App.filterCategory('All')">All Items</button>
+      </div>
+
+      <!-- Menu Items Grid -->
+      <div class="menu-grid" id="menuGrid">
+        <div class="loader-box">Loading fresh kitchen menu...</div>
+      </div>
+    </div>
+
+    <!-- VIEW: ORDER TRACKER (LIVE AUTO-REFRESH) -->
+    <div id="viewTrack" class="app-view">
+      <div class="track-card" id="trackCard">
+        <div class="track-header">
+          <div>
+            <h2 class="track-title" id="trackOrderNum">Order #ORD-Loading</h2>
+            <p class="track-sub" id="trackOrderMeta">Table: - | Placed: -</p>
+          </div>
+          <span class="status-badge" id="trackMainBadge">PENDING</span>
+        </div>
+
+        <div class="track-headline" id="trackHeadline">
+          Order placed and dispatched to kitchen queue.
+        </div>
+
+        <!-- 5-STEP LIFECYCLE PROGRESS BAR -->
+        <div class="progress-stepper">
+          <div class="step-item" id="step1">
+            <div class="step-circle">1</div>
+            <div class="step-label">Placed</div>
+          </div>
+          <div class="step-line" id="line1"></div>
+          <div class="step-item" id="step2">
+            <div class="step-circle">2</div>
+            <div class="step-label">Cooking</div>
+          </div>
+          <div class="step-line" id="line2"></div>
+          <div class="step-item" id="step3">
+            <div class="step-circle">3</div>
+            <div class="step-label">Ready</div>
+          </div>
+          <div class="step-line" id="line3"></div>
+          <div class="step-item" id="step4">
+            <div class="step-circle">4</div>
+            <div class="step-label">Served</div>
+          </div>
+          <div class="step-line" id="line4"></div>
+          <div class="step-item" id="step5">
+            <div class="step-circle">5</div>
+            <div class="step-label">Settled</div>
+          </div>
+        </div>
+
+        <!-- LIFECYCLE DETAILS PILLS -->
+        <div class="lifecycle-pills">
+          <div class="life-pill">👨‍🍳 Kitchen: <span id="lifeKitchen">PENDING</span></div>
+          <div class="life-pill">🍽️ Service: <span id="lifeServing">IN_KITCHEN</span></div>
+          <div class="life-pill">💳 Billing: <span id="lifeBilling">NOT_GENERATED</span></div>
+          <div class="life-pill">💵 Payment: <span id="lifePayment">PENDING</span></div>
+        </div>
+
+        <!-- ORDER ITEMS SUMMARY -->
+        <div class="track-items-box">
+          <h3 class="track-section-title">Order Contents</h3>
+          <div id="trackItemsList"></div>
+          <div class="track-total-row">
+            <span>Estimated Total:</span>
+            <span class="price-hl" id="trackTotal">₹0.00</span>
+          </div>
+        </div>
+
+        <div class="track-actions-row">
+          <button class="btn-secondary" onclick="App.openServiceModal()">🛎️ Summon Server</button>
+          <button class="btn-secondary" onclick="App.openFeedbackModal()">⭐ Rate Meal</button>
+          <button class="btn-primary" onclick="App.switchView('viewMenu')">Browse More Dishes</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW: ORDER HISTORY -->
+    <div id="viewHistory" class="app-view">
+      <h2 class="view-title">📜 My Dining & Order History</h2>
+      <div id="historyList" class="history-list"></div>
+    </div>
+  </main>
+
+  <!-- BOTTOM FLOATING CART BAR -->
+  <aside class="floating-cart" id="floatingCart">
+    <div class="cart-bar-content" onclick="App.toggleCartDrawer()">
+      <div class="cart-info">
+        <span class="cart-icon">🛒</span>
+        <span class="cart-badge" id="cartCount">0</span>
+        <span class="cart-total" id="cartTotalText">₹0.00</span>
+      </div>
+      <div class="cart-action-prompt">
+        <span>View Cart & Checkout</span>
+        <span class="arrow-icon">▲</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CART SLIDING DRAWER -->
+  <div class="cart-drawer-overlay" id="cartOverlay" onclick="App.toggleCartDrawer()"></div>
+  <div class="cart-drawer" id="cartDrawer">
+    <div class="drawer-header">
+      <h3>🛒 Your Dining Cart</h3>
+      <button class="btn-close" onclick="App.toggleCartDrawer()">✕</button>
+    </div>
+
+    <div class="drawer-body" id="cartItemsContainer">
+      <div class="empty-cart-msg">Your cart is currently empty.<br>Browse our menu and add dishes to order.</div>
+    </div>
+
+    <div class="drawer-footer" id="cartFooter">
+      <div class="instructions-box">
+        <label for="orderNotes">Special Cooking Instructions (Optional):</label>
+        <input type="text" id="orderNotes" placeholder="e.g. Extra spicy, less oil, no onion...">
+      </div>
+
+      <div class="bill-breakdown">
+        <div class="bill-row">
+          <span>Items Subtotal:</span>
+          <span id="billSubtotal">₹0.00</span>
+        </div>
+        <div class="bill-row">
+          <span>Estimated GST (5%):</span>
+          <span id="billTax">₹0.00</span>
+        </div>
+        <div class="bill-row grand-total">
+          <span>Estimated Total:</span>
+          <span id="billGrandTotal">₹0.00</span>
+        </div>
+      </div>
+
+      <button class="btn-checkout" id="btnPlaceOrder" onclick="App.placeOrder()">
+        🚀 Disptach Order to Kitchen
+      </button>
+    </div>
+  </div>
+
+  <!-- AUTH MODAL (LOGIN / REGISTER) -->
+  <div class="modal-overlay" id="authModal">
+    <div class="modal-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tabLogin" onclick="App.switchAuthTab('login')">Sign In</button>
+        <button class="auth-tab" id="tabRegister" onclick="App.switchAuthTab('register')">New Customer</button>
+      </div>
+
+      <div id="authError" class="auth-error"></div>
+
+      <!-- Login Form -->
+      <form id="formLogin" onsubmit="App.handleLogin(event)">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="loginUsername" required placeholder="e.g. customer1" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="loginPassword" required placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn-primary btn-block">Sign In & Order</button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="formRegister" style="display:none;" onsubmit="App.handleRegister(event)">
+        <div class="form-group">
+          <label>Your Full Name</label>
+          <input type="text" id="regFullName" required placeholder="e.g. Jay Paneru">
+        </div>
+        <div class="form-group">
+          <label>Choose Username</label>
+          <input type="text" id="regUsername" required placeholder="e.g. jay_diner">
+        </div>
+        <div class="form-group">
+          <label>Password (min 6 chars)</label>
+          <input type="password" id="regPassword" required minlength="6" placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn-primary btn-block">Create Customer Account</button>
+      </form>
+
+      <p class="auth-note">Every mobile phone & laptop gets an independent customer session.</p>
+    </div>
+  </div>
+
+  <!-- SERVICE REQUEST (SUMMON WAITER) MODAL -->
+  <div class="modal-overlay" id="serviceModal" style="display:none;">
+    <div class="modal-card">
+      <div class="drawer-header">
+        <h3>🛎️ Floor Service Request</h3>
+        <button class="btn-close" onclick="App.closeServiceModal()">✕</button>
+      </div>
+      <p class="auth-note" style="text-align:left; margin-bottom:12px;">Notify the floor server assigned to your table:</p>
+      
+      <div class="service-options">
+        <button class="btn-service" onclick="App.submitServiceRequest('WATER')">💧 Fresh Water</button>
+        <button class="btn-service" onclick="App.submitServiceRequest('CUTLERY')">🍴 Cutlery / Napkins</button>
+        <button class="btn-service" onclick="App.submitServiceRequest('ASSISTANCE')">🙋 Table Assistance</button>
+        <button class="btn-service" onclick="App.submitServiceRequest('BILL')">💳 Request Bill</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEEDBACK MODAL -->
+  <div class="modal-overlay" id="feedbackModal" style="display:none;">
+    <div class="modal-card">
+      <div class="drawer-header">
+        <h3>⭐ Rate Your Dining Experience</h3>
+        <button class="btn-close" onclick="App.closeFeedbackModal()">✕</button>
+      </div>
+      <form onsubmit="App.submitFeedback(event)">
+        <div class="form-group">
+          <label>Overall Rating</label>
+          <select id="fbRating" class="table-dropdown" style="width:100%">
+            <option value="5">⭐⭐⭐⭐⭐ Excellent (5/5)</option>
+            <option value="4">⭐⭐⭐⭐ Good (4/5)</option>
+            <option value="3">⭐⭐⭐ Average (3/5)</option>
+            <option value="2">⭐⭐ Poor (2/5)</option>
+            <option value="1">⭐ Terrible (1/5)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Comments & Recommendations</label>
+          <textarea id="fbComments" rows="3" class="search-input" style="width:100%; border-radius:8px;" placeholder="Tell us about the food quality, speed, or ambience..."></textarea>
+        </div>
+        <button type="submit" class="btn-primary btn-block">Submit Review</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- BOTTOM MOBILE NAVIGATION BAR -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="navMenu" onclick="App.switchView('viewMenu')">
+      <span class="nav-icon">🍽️</span>
+      <span class="nav-label">Menu</span>
+    </button>
+    <button class="nav-item" id="navTrack" onclick="App.switchView('viewTrack')">
+      <span class="nav-icon">⚡</span>
+      <span class="nav-label">Live Tracker</span>
+    </button>
+    <button class="nav-item" id="navHistory" onclick="App.switchView('viewHistory')">
+      <span class="nav-icon">📜</span>
+      <span class="nav-label">My Orders</span>
+    </button>
+  </nav>
+
+  <script src="/portal.js"></script>
+</body>
+</html>
