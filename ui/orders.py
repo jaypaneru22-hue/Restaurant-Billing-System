@@ -99,6 +99,20 @@ class NewOrderFrame(ctk.CTkFrame):
             text_color=palette["text_secondary"]
         ).pack(anchor="w")
 
+        if not self.is_customer and self.navigate_fn:
+            ctk.CTkButton(
+                cat_header,
+                text="💳 Pending Billing Queue →",
+                height=32,
+                font=ctk.CTkFont(size=11, weight="bold"),
+                fg_color=palette["bg_card"],
+                hover_color=palette["bg_secondary"],
+                text_color=palette["accent"],
+                border_width=1,
+                border_color=palette["accent"],
+                command=lambda: self.navigate_fn("pending_billing")
+            ).pack(side="right")
+
         # Search Bar
         search_card = ctk.CTkFrame(left_panel, fg_color=palette["bg_card"], corner_radius=10, border_width=1, border_color=palette["border"])
         search_card.pack(fill="x", pady=(0, 10))
@@ -838,7 +852,7 @@ class OrderHistoryFrame(ctk.CTkFrame):
 
         self.status_seg = ctk.CTkSegmentedButton(
             controls_box,
-            values=["All", "PENDING", "COMPLETED", "CANCELLED"],
+            values=["All", "Unbilled", "COMPLETED", "CANCELLED"],
             command=lambda v: self.refresh_history(),
             height=32,
             font=ctk.CTkFont(size=11, weight="bold")
@@ -864,7 +878,12 @@ class OrderHistoryFrame(ctk.CTkFrame):
 
     def refresh_history(self):
         filter_status = self.status_seg.get()
-        status_param = None if filter_status == "All" else filter_status
+        if filter_status == "All":
+            status_param = None
+        elif filter_status == "Unbilled":
+            status_param = "UNBILLED"
+        else:
+            status_param = filter_status
         curr_user = self.auth_svc.current_user
         is_customer = bool(curr_user and curr_user.role == "CUSTOMER")
         user_id = curr_user.id if is_customer else None
@@ -942,7 +961,7 @@ class OrderHistoryFrame(ctk.CTkFrame):
             ).pack(padx=8, pady=3)
 
             # Actions based on status
-            if order.status == "PENDING":
+            if order.status not in ("COMPLETED", "CANCELLED"):
                 if not is_customer:
                     bill_btn = ctk.CTkButton(
                         right,

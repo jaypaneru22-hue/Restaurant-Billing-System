@@ -1,5 +1,5 @@
 """Order management service enforcing business logic and state transitions."""
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 from decimal import Decimal
 from models.order import Order
 from models.order_item import OrderItem
@@ -222,6 +222,19 @@ class OrderService:
     def get_customer_orders(self, user_id: int, limit: int = 50) -> List[Order]:
         """Returns orders strictly belonging to the specified customer."""
         return self.order_repo.list_orders(limit=limit, user_id=user_id)
+
+    def get_pending_billing_orders(
+        self,
+        search_query: Optional[str] = None,
+        filter_status: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Retrieves eligible unbilled orders for cashier billing queue."""
+        return self.order_repo.get_pending_billing_orders(
+            search_query=search_query,
+            filter_status=filter_status,
+            limit=limit
+        )
 
 
 # Global order service instance

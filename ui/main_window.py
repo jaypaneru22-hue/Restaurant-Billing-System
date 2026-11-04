@@ -24,6 +24,7 @@ from ui.chef_kds import ChefKDSFrame
 from ui.waiter_dashboard import WaiterDashboardFrame
 from ui.table_management import TableManagementFrame
 from ui.customer_portal import CustomerPortalFrame
+from ui.cashier_billing_queue import CashierBillingQueueFrame
 from services.auth_service import AuthService, auth_service
 from services.billing_service import BillingService, billing_service
 from services.order_service import OrderService, order_service
@@ -57,6 +58,7 @@ class ShortcutsHelpDialog(ctk.CTkToplevel):
 
         shortcuts = [
             ("Alt + D  /  Ctrl + D", "Navigate to Dashboard"),
+            ("Alt + B  /  Ctrl + B", "Navigate to Pending Billing Queue"),
             ("Alt + N  /  Ctrl + N", "Navigate to New POS Order (Billing)"),
             ("Alt + M  /  Ctrl + M", "Navigate to Menu Catalog Management"),
             ("Alt + O  /  Ctrl + O", "Navigate to Orders History & Billing"),
@@ -357,6 +359,7 @@ class MainWindow(ctk.CTkFrame):
         if self.user_role == "CASHIER":
             nav_items = [
                 ("dashboard", "⚡ Shift Overview", "Alt+D"),
+                ("pending_billing", "💳 Pending Billing", "Alt+B"),
                 ("orders", "🛒 Counter Billing", "Alt+N"),
                 ("orders_history", "🧾 Today's Receipts", "Alt+O"),
                 ("shift_summary", "💼 Shift Closeout", "Alt+Z"),
@@ -367,6 +370,7 @@ class MainWindow(ctk.CTkFrame):
             nav_items = [
                 ("dashboard", "📋 Operations Floor", "Alt+D"),
                 ("tables", "🪑 Floor & Table Plan", "Alt+E"),
+                ("pending_billing", "💳 Pending Billing", "Alt+B"),
                 ("active_orders", "⚡ Live Active Orders", "Alt+A"),
                 ("orders", "🛒 Counter Billing", "Alt+N"),
                 ("menu", "📋 Menu Management", "Alt+M"),
@@ -419,6 +423,7 @@ class MainWindow(ctk.CTkFrame):
                 ("system_health", "🩺 System Health Monitor", "Alt+H"),
                 ("feedback", "⭐ Customer Feedback", "Alt+Q"),
                 ("active_orders", "⚡ Live Active Orders", "Alt+A"),
+                ("pending_billing", "💳 Pending Billing", "Alt+B"),
                 ("orders", "🛒 Point of Sale (POS)", "Alt+N"),
                 ("menu", "🍽️ Menu Catalog", "Alt+M"),
                 ("food_availability", "🚫 86 Catalog List", "Alt+F"),
@@ -499,6 +504,10 @@ class MainWindow(ctk.CTkFrame):
         root.bind("<Alt-d>", lambda e: self._safe_navigate("dashboard"))
         root.bind("<Alt-D>", lambda e: self._safe_navigate("dashboard"))
         root.bind("<Control-d>", lambda e: self._safe_navigate("dashboard"))
+
+        root.bind("<Alt-b>", lambda e: self._safe_navigate("pending_billing"))
+        root.bind("<Alt-B>", lambda e: self._safe_navigate("pending_billing"))
+        root.bind("<Control-b>", lambda e: self._safe_navigate("pending_billing"))
 
         root.bind("<Alt-n>", lambda e: self._safe_navigate("orders"))
         root.bind("<Alt-N>", lambda e: self._safe_navigate("orders"))
@@ -634,6 +643,12 @@ class MainWindow(ctk.CTkFrame):
             self.current_view = ShiftMonitoringFrame(self.content_container)
         elif view_name == "shift_summary":
             self.current_view = ShiftSummaryFrame(self.content_container)
+        elif view_name == "pending_billing":
+            self.current_view = CashierBillingQueueFrame(
+                self.content_container,
+                on_generate_bill=self.open_billing_modal,
+                on_view_receipt=self.open_receipt_modal
+            )
         elif view_name == "orders":
             self.current_view = NewOrderFrame(
                 self.content_container,
@@ -673,10 +688,20 @@ class MainWindow(ctk.CTkFrame):
             self.current_view.pack(fill="both", expand=True)
 
     def open_billing_modal(self, order_id: int):
+        def _on_bill_done(oid: int):
+            if hasattr(self.current_view, "refresh_queue"):
+                self.current_view.refresh_queue()
+            elif hasattr(self.current_view, "refresh_history"):
+                self.current_view.refresh_history()
+            elif hasattr(self.current_view, "refresh_data"):
+                self.current_view.refresh_data()
+            else:
+                self.navigate_to("orders_history")
+
         BillingDialog(
             self,
             order_id=order_id,
-            on_bill_completed=lambda oid: self.navigate_to("orders_history")
+            on_bill_completed=_on_bill_done
         )
 
     def open_receipt_modal(self, order_id: int):

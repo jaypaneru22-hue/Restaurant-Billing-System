@@ -510,19 +510,34 @@ class DashboardFrame(ctk.CTkFrame):
         b_right = ctk.CTkFrame(banner, fg_color="transparent")
         b_right.pack(side="right", padx=18)
 
-        # Prominent Big Action: Start New Order
+        # Prominent Big Actions: Start New Order and Pending Billing Queue
         btn_start = ctk.CTkButton(
             b_right,
             text="🚀 START NEW ORDER (Alt+N)",
             height=40,
-            width=210,
+            width=190,
             font=ctk.CTkFont(size=12, weight="bold"),
             fg_color=palette["accent"],
             hover_color=palette["accent_hover"],
             text_color="#FFFFFF",
             command=lambda: self.navigate("orders")
         )
-        btn_start.pack(side="right", padx=4)
+        btn_start.pack(side="right", padx=(6, 0))
+
+        btn_queue = ctk.CTkButton(
+            b_right,
+            text="💳 PENDING BILLING QUEUE (Alt+B)",
+            height=40,
+            width=220,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color=palette["bg_secondary"],
+            hover_color=palette["border"],
+            text_color=palette["accent"],
+            border_width=1,
+            border_color=palette["accent"],
+            command=lambda: self.navigate("pending_billing")
+        )
+        btn_queue.pack(side="right", padx=(0, 6))
 
         # 4 Operational Shift KPI Cards
         kpi_row = ctk.CTkFrame(self, fg_color="transparent")
@@ -977,6 +992,19 @@ class DashboardFrame(ctk.CTkFrame):
                         right = ctk.CTkFrame(row, fg_color="transparent")
                         right.pack(side="right", padx=10)
                         ctk.CTkLabel(right, text=f"{CURRENCY_SYMBOL}{t['total']}", font=ctk.CTkFont(size=12, weight="bold"), text_color=palette["success"]).pack(side="left", padx=10)
+
+                        if t.get("is_unbilled"):
+                            ctk.CTkButton(
+                                right,
+                                text="Generate Bill 💳",
+                                width=115,
+                                height=28,
+                                font=ctk.CTkFont(size=11, weight="bold"),
+                                fg_color=palette["accent"],
+                                hover_color=palette["accent_hover"],
+                                text_color="#FFFFFF",
+                                command=lambda: self.navigate("pending_billing")
+                            ).pack(side="left", padx=(4, 0))
 
         elif self.role == "MANAGER":
             metrics = self.dashboard_svc.get_manager_metrics()

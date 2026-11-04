@@ -207,38 +207,45 @@ class DashboardService:
         today_str = datetime.now().strftime("%Y-%m-%d")
 
         # 1. My shift completed tickets & sales today
-        if user_id:
-            sales_row = self.db.fetchone(
-                """SELECT COUNT(b.id) AS my_count, COALESCE(SUM(b.final_total), 0) AS my_sales
-                   FROM bills b
-                   JOIN orders o ON b.order_id = o.id
-                   WHERE o.user_id = ? AND DATE(b.billed_at) = DATE(?);""",
-                (user_id, today_str)
-            )
-        else:
-            sales_row = self.db.fetchone(
-                """SELECT COUNT(b.id) AS my_count, COALESCE(SUM(b.final_total), 0) AS my_sales
-                   FROM bills b
-                   WHERE DATE(b.billed_at) = DATE(?);""",
-                (today_str,)
-            )
+        sales_row = self.db.fetchone(
+            """SELECT COUNT(b.id) AS my_count, COALESCE(SUM(b.final_total), 0) AS my_sales
+               FROM bills b
+               WHERE DATE(b.billed_at) = DATE(?);""",
+            (today_str,)
+        )
 
         shift_sales = Decimal(str(sales_row["my_sales"])) if sales_row else Decimal("0.00")
         shift_tickets = int(sales_row["my_count"]) if sales_row else 0
 
-        # 2. Active Pending counter tickets
-        pending_row = self.db.fetchone("SELECT COUNT(*) AS pending_count FROM orders WHERE status = 'PENDING';")
-        pending_count = int(pending_row["pending_count"]) if pending_row else 0
-
-        # 3. Recent tickets created by / assigned to this terminal
-        recent_rows = self.db.fetchall(
-            """SELECT o.id, o.order_number, o.customer_name, o.table_number, o.status,
-                      COALESCE(b.final_total, 0) AS final_total,
-                      COALESCE(b.payment_method, '-') AS payment_method,
-                      o.created_at
+        # 2. Active Pending counter & customer tickets awaiting cashier billing
+        pending_row = self.db.fetchone(
+            """SELECT COUNT(o.id) AS pending_count
                FROM orders o
                LEFT JOIN bills b ON o.id = b.order_id
-               ORDER BY o.id DESC LIMIT 5;"""
+               WHERE b.id IS NULL AND o.status != 'CANCELLED';"""
+        )
+        pending_count = int(pending_row["pending_count"]) if pending_row else 0
+
+        # 3. Recent tickets created by / assigned to this terminal (prioritizing unbilled served orders)
+        recent_rows = self.db.fetchall(
+            """SELECT o.id, o.order_number, o.customer_name, o.table_number, o.status,
+                      COALESCE(b.final_total, (SELECT SUM(line_total) FROM order_items WHERE order_id = o.id), 0) AS final_total,
+                      COALESCE(b.payment_method, 'UNBILLED') AS payment_method,
+                      b.id AS bill_id,
+                      o.created_at,
+                      o.picked_up_at,
+                      o.served_at
+               FROM orders o
+               LEFT JOIN bills b ON o.id = b.order_id
+               WHERE o.status != 'CANCELLED'
+               ORDER BY 
+                   CASE 
+                       WHEN b.id IS NULL AND (o.status = 'SERVED' OR o.served_at IS NOT NULL) THEN 1
+                       WHEN b.id IS NULL AND o.status = 'READY' THEN 2
+                       WHEN b.id IS NULL THEN 3
+                       ELSE 4
+                   END ASC,
+                   o.id DESC LIMIT 10;"""
         )
         recent_tickets = [
             {
@@ -249,6 +256,8 @@ class DashboardService:
                 "status": r["status"],
                 "total": Decimal(str(r["final_total"])).quantize(Decimal("0.01")),
                 "payment_method": r["payment_method"],
+                "bill_id": r["bill_id"],
+                "is_unbilled": (r["bill_id"] is None),
                 "created_at": r["created_at"]
             }
             for r in recent_rows

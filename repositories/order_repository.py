@@ -1,5 +1,5 @@
 """Repository for orders and order line items persistence."""
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
 from decimal import Decimal
 from database.db import DatabaseManager, db
@@ -209,8 +209,11 @@ class OrderRepository:
         conditions = []
         params = []
         if status and status.strip():
-            conditions.append("o.status = ?")
-            params.append(status.upper())
+            if status.upper() == "UNBILLED":
+                conditions.append("o.status NOT IN ('COMPLETED', 'CANCELLED')")
+            else:
+                conditions.append("o.status = ?")
+                params.append(status.upper())
         if user_id is not None:
             conditions.append("o.user_id = ?")
             params.append(user_id)
@@ -242,6 +245,154 @@ class OrderRepository:
                 items=items
             ))
         return orders
+
+    def get_pending_billing_orders(
+        self,
+        search_query: Optional[str] = None,
+        filter_status: Optional[str] = None,
+        limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Retrieves eligible orders for cashier billing with independent business statuses.
+
+        Ensures orders are visible regardless of whether kitchen status is READY or serving status
+        is PICKED_UP or SERVED, provided no completed bill has been settled.
+        """
+        sql = """
+            SELECT o.id, o.order_number, o.user_id, o.table_number, o.customer_name,
+                   o.status, o.created_at, o.updated_at, o.special_instructions,
+                   o.waiter_id, o.picked_up_at, o.served_at,
+                   u.full_name AS customer_full_name,
+                   w.full_name AS waiter_name,
+                   w.username AS waiter_username,
+                   b.id AS bill_id, b.bill_number, b.final_total AS bill_final_total,
+                   b.payment_status, b.payment_method, b.billed_at,
+                   (SELECT COUNT(*) FROM order_items WHERE order_id = o.id) AS item_count,
+                   (SELECT COALESCE(SUM(line_total), 0) FROM order_items WHERE order_id = o.id) AS subtotal
+            FROM orders o
+            LEFT JOIN users u ON o.user_id = u.id
+            LEFT JOIN users w ON o.waiter_id = w.id
+            LEFT JOIN bills b ON o.id = b.order_id
+            WHERE o.status != 'CANCELLED'
+        """
+        conditions = []
+        params = []
+
+        # Filter handling
+        filter_key = (filter_status or "ALL_UNBILLED").upper()
+        if filter_key == "ALL_UNBILLED":
+            conditions.append("b.id IS NULL AND o.status != 'COMPLETED'")
+        elif filter_key == "SERVED":
+            conditions.append("b.id IS NULL AND (o.status = 'SERVED' OR o.served_at IS NOT NULL)")
+        elif filter_key == "READY":
+            conditions.append("b.id IS NULL AND o.status = 'READY'")
+        elif filter_key == "PICKED_UP":
+            conditions.append("b.id IS NULL AND o.status = 'PICKED_UP'")
+        elif filter_key == "IN_KITCHEN":
+            conditions.append("b.id IS NULL AND o.status IN ('PENDING', 'NEW', 'ACCEPTED', 'PREPARING')")
+        elif filter_key == "BILLED":
+            conditions.append("b.id IS NOT NULL")
+        elif filter_key == "ALL_ORDERS":
+            pass  # return all non-cancelled orders
+
+        if conditions:
+            sql += " AND " + " AND ".join(conditions)
+
+        if search_query and search_query.strip():
+            sq = f"%{search_query.strip()}%"
+            sql += " AND (o.order_number LIKE ? OR o.customer_name LIKE ? OR o.table_number LIKE ? OR CAST(o.id AS TEXT) = ?)"
+            params.extend([sq, sq, sq, search_query.strip()])
+
+        sql += """
+            ORDER BY 
+                CASE 
+                    WHEN b.id IS NULL AND (o.status = 'SERVED' OR o.served_at IS NOT NULL) THEN 1
+                    WHEN b.id IS NULL AND o.status = 'READY' THEN 2
+                    WHEN b.id IS NULL AND o.status = 'PICKED_UP' THEN 3
+                    WHEN b.id IS NULL THEN 4
+                    ELSE 5
+                END ASC,
+                o.id DESC
+            LIMIT ?;
+        """
+        params.append(limit)
+
+        rows = self.db.fetchall(sql, tuple(params))
+        results = []
+        for r in rows:
+            oid = r["id"]
+            items = self.get_order_items(oid)
+            item_summaries = [f"{it.item_name} ×{it.quantity}" for it in items[:4]]
+            if len(items) > 4:
+                item_summaries.append(f"+{len(items)-4} more")
+            summary_str = ", ".join(item_summaries) if item_summaries else "No items"
+
+            # Independent Status Computation
+            # 1. Kitchen Status
+            raw_st = r["status"].upper() if r["status"] else "PENDING"
+            if raw_st in ("PENDING", "NEW", "RECEIVED"):
+                kitchen_status = "PENDING"
+            elif raw_st == "ACCEPTED":
+                kitchen_status = "ACCEPTED"
+            elif raw_st == "PREPARING":
+                kitchen_status = "PREPARING"
+            elif raw_st in ("READY", "PICKED_UP", "SERVED", "COMPLETED"):
+                kitchen_status = "READY"
+            else:
+                kitchen_status = raw_st
+
+            # 2. Serving Status
+            if r["served_at"] is not None or raw_st == "SERVED":
+                serving_status = "SERVED"
+            elif r["picked_up_at"] is not None or raw_st == "PICKED_UP":
+                serving_status = "PICKED_UP"
+            elif raw_st == "READY":
+                serving_status = "READY"
+            else:
+                serving_status = "IN_KITCHEN"
+
+            # 3. Billing Status
+            if r["bill_id"] is not None:
+                bill_status = "SETTLED" if r["payment_status"] == "PAID" or raw_st == "COMPLETED" else "GENERATED"
+            else:
+                bill_status = "NOT_GENERATED"
+
+            # 4. Payment Status
+            if r["bill_id"] is not None and r["payment_status"] == "PAID":
+                payment_status = "PAID"
+            else:
+                payment_status = "PENDING"
+
+            subtotal_val = Decimal(str(r["subtotal"] or "0.00")).quantize(Decimal("0.01"))
+            bill_total_val = Decimal(str(r["bill_final_total"])).quantize(Decimal("0.01")) if r["bill_final_total"] is not None else subtotal_val
+
+            results.append({
+                "id": oid,
+                "order_number": r["order_number"],
+                "user_id": r["user_id"],
+                "table_number": r["table_number"] or "Takeaway",
+                "customer_name": r["customer_name"] or "Walk-in Customer",
+                "status": raw_st,
+                "kitchen_status": kitchen_status,
+                "serving_status": serving_status,
+                "billing_status": bill_status,
+                "payment_status": payment_status,
+                "created_at": r["created_at"],
+                "updated_at": r["updated_at"],
+                "picked_up_at": r["picked_up_at"],
+                "served_at": r["served_at"],
+                "special_instructions": r["special_instructions"] or "",
+                "waiter_id": r["waiter_id"],
+                "waiter_name": r["waiter_name"] or "Unassigned",
+                "waiter_username": r["waiter_username"],
+                "bill_id": r["bill_id"],
+                "bill_number": r["bill_number"],
+                "item_count": r["item_count"],
+                "items_summary": summary_str,
+                "subtotal": subtotal_val,
+                "total_amount": bill_total_val,
+                "items": items
+            })
+        return results
 
 
 order_repository = OrderRepository()
